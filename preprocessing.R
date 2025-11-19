@@ -102,8 +102,33 @@ max(ORMR.raw$Date)
 pit_data <- as.data.table(ORMR.raw) 
 
 # save data to csv file
-write_csv(pit_data, "data/pit_data_2025-10-14.csv")
-#pit_data <- fread("data/pit_data_2025-10-14.csv")
+#write_csv(pit_data, "data/pit_data_2025-10-14.csv")
+
+##### PICK BACK UP HERE #####
+pit_data <- fread("data/pit_data_2025-10-14.csv")
+
+n_distinct(pit_data$Tag_ID)
+tags <- pit_data %>%
+  group_by(Tag_ID) %>%
+  summarise(Num_Detections = n(),
+            Num_Dates = n_distinct(Date),
+            Num_Loops = n_distinct(Loop)) %>%
+  arrange(desc(Num_Detections))
+head(tags)
+boxplot(tags$Num_Detections)
+summary(tags$Num_Detections)
+
+# take a sample of most-detected fish for now...
+sample_tags <- tags$Tag_ID[1:20]
+pit_sample <- pit_data %>% filter(Tag_ID %in% sample_tags)
+
+pit_sample2 <- pit_sample %>%
+  group_by(Tag_ID, Date, Loop) %>%
+  reframe(
+    Time = first(Time),
+    Duration = mean(Duration),
+    Antenna = first(Antenna)
+  )
 
 # -------------------------- SEINE DATA ----------------------------------------
 
