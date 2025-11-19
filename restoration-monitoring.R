@@ -261,7 +261,7 @@ server <- function(input, output, session) {
   # ---------------------------- MAPS ------------------------------------------
   output$map <- renderLeaflet({
     wbpal <- colorFactor(palette="Dark2", domain=seine_data$Water_Name)
-    rpal <- colorNumeric(palette="Reds", domain=rich_data_all$Shannon_Index)
+    rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Shannon_Index, reverse=TRUE)
     
   if (nrow(rich_data()) >0 ) { 
     leaflet() %>%
