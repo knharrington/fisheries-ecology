@@ -47,19 +47,19 @@ card1 <- card(
 # bar graph
 card2 <- card(
   full_screen = TRUE,
-  card_header("Tagged Fish Composition"),
+  card_header("Seined Fish Composition"),
   card_body(plotlyOutput("fish_comp"))
 )
 # line graph
 card3 <- card(
   full_screen = TRUE,
-  card_header("Species Richness"),
+  card_header("Species Richness Over Time"),
   card_body(plotlyOutput("sp_rich"))
 )
 # map
 card4 <- card(
   full_screen = TRUE,
-  card_header("Species Diversity"),
+  card_header("Species Richness by Location"),
   card_body(leafletOutput("map", height = "100%"),
             style = "padding: 0; height: 100%;")
 )
@@ -68,8 +68,8 @@ card4 <- card(
 sidebar <- sidebar(
   width=400,
   helpText("Use the following selections to update the data displayed in the plots."),
-  pickerInput("select_species", label="Select Species", choices = c("Common Snook", "Red Drum", "Striped Mullet"), 
-               selected = "Sandbar Shark", #selectize = TRUE, multiple=TRUE,
+  pickerInput("select_species", label="Select Species", choices = c("Common snook", "Sheepshead", "Red drum"), 
+               selected = "Common snook", #selectize = TRUE, multiple=TRUE,
                options = pickerOptions(container = "body", liveSearch = TRUE, actionsBox = TRUE,
                                        style = "btn-outline-primary",
                                        selectedTextFormat = "count > 2", countSelectedText = "{0} species selected"), width = "100%"),
@@ -177,6 +177,15 @@ server <- function(input, output, session) {
   })
   
   # ---------------------------- DATA ------------------------------------------
+  
+  # habitat use
+  hab_use <- reactive({
+    pit_sample_day %>%
+      filter(Common_Name %in% input$select_species, 
+             Fish_Size %in% input$size)
+  })
+  
+  # species richness
   rich_data <- reactive({
     seine_data %>%
       filter(YEAR >= input$years[1],
@@ -209,16 +218,14 @@ server <- function(input, output, session) {
   # abacus plot
   output$abacus_plot <- renderPlotly({
     plot_ly() %>%
-      # add_markers(
-      #   data = data,
-      #   x = ~x,
-      #   y = ~y,
-      #   marker = list(color = "#000000", opacity=0.5),
-      #   name = "Detection"
-      # ) %>%
+      add_markers(
+        data = hab_use(), x = ~Date, y = ~Tag_ID,
+        color=~Water_Body, colors=dark2_pal
+      ) %>%
       layout(
-        xaxis = list(title = "", gridcolor = "#cccccc"),
-        yaxis = list(title = "", gridcolor = "#cccccc"),
+        xaxis = list(title = "Detection Date", gridcolor = "#cccccc"),
+        yaxis = list(title = "Tag ID", gridcolor = "#cccccc"),
+        legend = list(title = list(text = "Location")),
         hovermode = "closest",
         paper_bgcolor = "rgba(0,0,0,0)",  
         plot_bgcolor = "rgba(0,0,0,0)"
@@ -227,46 +234,25 @@ server <- function(input, output, session) {
   
   # tagged fish by species for each sampling event
   output$fish_comp <- renderPlotly({
-    plot_ly(
-      # data = data,
-      # x = ~x,
-      # y = ~y,
-      # color = ~color,
-      # colors = ~ color_map,
-      # type = "bar"
-    ) %>%
-      layout(
-        xaxis = list(title = "", gridcolor = "#cccccc"),
-        yaxis = list(title = "", gridcolor = "#cccccc"),
-        hovermode = "closest",
-        paper_bgcolor = "rgba(0,0,0,0)",  
-        plot_bgcolor = "rgba(0,0,0,0)"
-      )
+    composition_plot
   })
   
   # species richness by waterbody
   output$sp_rich <- renderPlotly({
-    plot_ly(
-      
-    ) %>%
-      layout(
-        xaxis = list(title = "", gridcolor = "#cccccc"),
-        yaxis = list(title = "", gridcolor = "#cccccc"),
-        hovermode = "closest",
-        paper_bgcolor = "rgba(0,0,0,0)",  
-        plot_bgcolor = "rgba(0,0,0,0)"
-      )
+    rich_time_plot
   })
   
   # ---------------------------- MAPS ------------------------------------------
   output$map <- renderLeaflet({
-    wbpal <- colorFactor(palette="Dark2", domain=seine_data$Water_Name)
+    #wbpal <- colorFactor(palette="Dark2", domain=seine_data$Water_Name)
     rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Shannon_Index, reverse=TRUE)
+    #icon <- makeAwesomeIcon(icon="tower-broadcast", library="fa", markerColor = "darkblue", iconColor = "#FFFFFF")
     
   if (nrow(rich_data()) >0 ) { 
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery")%>%
       setView(lng=-82.66670, lat=27.50980, zoom=16)%>%
+      #addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, popup=~Antenna, icon=icon) %>%
       addCircleMarkers(data=rich_data(), lng=~Seine_Longitude, lat=~Seine_Latitude, 
                        radius=~Shannon_Index*2.5, weight=2, opacity=0.75, fillOpacity=0.75, 
                        color=~wbpal(Water_Name), fillColor=~rpal(Shannon_Index)) %>%
@@ -275,7 +261,8 @@ server <- function(input, output, session) {
   } else {
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery")%>%
-      setView(lng=-82.66670, lat=27.50980, zoom=16)
+      setView(lng=-82.66670, lat=27.50980, zoom=16) %>%
+      addMarkers(data=antenna_loc, lng~Ant_Longitude, lat=~Ant_Latitude)
   }
   })
   
