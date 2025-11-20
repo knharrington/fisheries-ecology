@@ -18,14 +18,10 @@ library(leaflet)
 # function to do the opposite of %in%
 `%nin%` = Negate(`%in%`)
 
-
-# ---------------------------- OPTIONS -----------------------------------------
-
-
 # ------------------------- PIT TAG DATA ---------------------------------------
 
 ##### FOR MULTI-FILE DATA #####  
-# Get the file names of all the raw txt files saved in the folder of data to be imported (only files starting with RP)
+# Get the file names of all the raw txt files saved in the folder of data to be imported (only txt files starting with RP)
 ORMR.files = list.files(path="data/ORMR_data", pattern="^RP_.*\\.txt$", full.names=T)
 
 # Use a loop to create a raw dataframe for each file in the folder to be imported and create columns in the dataframe to specify location, date, and Antenna
@@ -72,14 +68,14 @@ for (i in 1:length(filenames)) {
   Errorlist[[i]] = dflist[[i]][which(dflist[[i]]$V1=='E'),]
 }
 
-ORMR.raw = droplevels(rbindlist(PITlist, fill=T)) # Combine the list of dataframes into one dataframe
+# Combine the list of dataframes into one dataframe
+ORMR.raw = droplevels(rbindlist(PITlist, fill=T))
 # delete and rename columns
-ORMR.raw = within(ORMR.raw, rm(V11, V12, V13, V14, V15, V16)) # delete empty columns
+ORMR.raw = within(ORMR.raw, rm(V11, V12, V13, V14, V15, V16))
 ORMR.raw = ORMR.raw %>% rename(Code = V1, Date = V2, Time = V3, Time_Reference = V4, Duration = V5, 
                                Tag_Type = V6, Loop = V7, Tag_ID = V8, Site_Code = V9, Effective_Amps = V10)
-
+# add columns for loops and date/time info
 ORMR.raw$Loop = paste(ORMR.raw$Antenna, "-", ORMR.raw$Loop)
-
 ORMR.raw$Date <- as.POSIXct(ORMR.raw$Date, format="%Y-%m-%d")
 #ORMR.raw$Time <- hms(ORMR.raw$Time)
 ORMR.raw$Duration <- as.numeric(hms(ORMR.raw$Duration))
@@ -89,45 +85,163 @@ ORMR.raw$Date_Time <- ymd_hms(paste(ORMR.raw$Date, ORMR.raw$Time))
 ORMR.raw <- ORMR.raw %>%
   filter(!is.na(Date), Date > as.POSIXct("2022-01-01", format="%Y-%m-%d"), Date < as.POSIXct("2026-01-01", format="%Y-%m-%d"), Tag_Type %in% c("A", "R", "W"))
 
-# subset for date
+# check dates
 hist(ORMR.raw$Date, breaks="months", freq=TRUE)
 sort(unique(ORMR.raw$Date))
 max(ORMR.raw$Date)
-#ORMR.raw <- subset(ORMR.raw, Date >= "2023-10-01" & Date <= "2023-10-07")
-# end_date <- 
-# start_date <- as.POSIXct("2023", format="%Y-%m-%d")
-# ORMR.raw <- subset(ORMR.raw, Date >= start_date & Date <= end_date)
 
 # save to data table
 pit_data <- as.data.table(ORMR.raw) 
 
 # save data to csv file
-#write_csv(pit_data, "data/pit_data_2025-10-14.csv")
+write_csv(pit_data, "data/pit_data_2025-10-14.csv")
 
-##### PICK BACK UP HERE #####
-pit_data <- fread("data/pit_data_2025-10-14.csv")
+########## PICK BACK UP HERE ##########
+pit_data <- fread("data/pit_data_2025-10-14.csv") # > 5 million detections
+tag_data <- fread("data/FWC_RP_Tagdata.csv")
 
-n_distinct(pit_data$Tag_ID)
-tags <- pit_data %>%
+unique(tag_data$CommonName)
+n_distinct(pit_data$Tag_ID) # 4504
+
+# tag data cleaning to keep naming conventions consistent
+tag_data <- tag_data %>%
+  rename(Common_Name = CommonName, Species = Scientificname, Tag_ID = TagNo, Date_Time_Rel = Date.Time.Rel, Rel_Water_Body = Waterbody) %>%
+  mutate(
+    Date_Time_Rel = as.POSIXct(Date_Time_Rel, format = "%m/%d/%Y %H:%M")
+  ) %>%
+  select(Common_Name, Species, Tag_ID, Date_Time_Rel, SL_MM, FL_MM, TL_MM, Rel_Water_Body)
+
+# investigating and fixing tag ID errors
+n_distinct(tag_data$Tag_ID) # 283... so that means there are some duplicate entries? (288 obs) - remove for now
+tag_data %>% group_by(Tag_ID) %>% summarise(Count = n()) %>% arrange(desc(Count))
+tag_data %>% filter(Tag_ID %in% c("900_226001074178", "900_226001074182", "900_226001074288", "900_226001074290", "900_226001525931")) # some duplicated, some measuring discrepancies
+tag_data <- tag_data %>% filter(Tag_ID %nin% c("900_226001074178", "900_226001074182", "900_226001074288", "900_226001074290", "900_226001525931"))
+
+# number of tagged fish per species
+tag_data %>% group_by(Common_Name) %>% summarise(Count = n()) %>% arrange(desc(Count)) # 233 snook, 30 sheepshead, 10 red drum, 9 tarpon...
+
+# join detections and tag info (Note that there are more tags without species info than with) (should NOT be many-to-many join)
+pittag_data <- pit_data %>% left_join(tag_data, by = join_by(Tag_ID))
+
+# only keeping detections where the tag info is complete
+pittag_data_comp <- pittag_data %>% filter(!is.na(Common_Name), !is.na(Date_Time_Rel), !is.na(Rel_Water_Body), !is.na(TL_MM))
+
+# summary of tag detections
+# tags <- pittag_data_comp %>%
+#   group_by(Tag_ID) %>%
+#   summarise(Num_Detections = n(),
+#             Num_Dates = n_distinct(Date),
+#             Num_Loops = n_distinct(Loop)) %>%
+#   arrange(desc(Num_Detections))
+
+# head(tags)
+# boxplot(tags$Num_Detections)
+# summary(tags$Num_Detections)
+
+# # take a sample of most-detected fish for testing...
+# sample_tags <- tags$Tag_ID[1:20]
+# pit_sample <- pittag_data_comp %>% filter(Tag_ID %in% sample_tags)
+
+# filter detections to fish that were present at least 14 days after release
+# keepers <- pittag_data_comp %>%
+#   group_by(Tag_ID) %>%
+#   arrange(Date_Time) %>%
+#   mutate(Present = last(Date_Time) >= Date_Time_Rel + lubridate::days(14)) #%>%
+#   #filter(Present == TRUE)
+# died <- keepers %>% filter(Present == FALSE) %>%
+#   group_by(Tag_ID) %>%
+#   arrange(Date_Time) %>%
+#   reframe(Last_Date_Time = last(Date_Time),
+#             Date_Time_Rel = Date_Time_Rel) %>%
+#   group_by(Tag_ID) %>%
+#   summarise(Date_Time_Rel = first(Date_Time_Rel),
+#             Last_Date_Time = first(Last_Date_Time))
+  
+
+# filter to 3 species, keep fish present at least 14 days post-release and have at least 10 detections, assign water bodies to detections
+pit_sample <- pittag_data_comp %>%
+  filter(Common_Name %in% c("Common snook", "Sheepshead", "Red drum")) %>%
   group_by(Tag_ID) %>%
-  summarise(Num_Detections = n(),
-            Num_Dates = n_distinct(Date),
-            Num_Loops = n_distinct(Loop)) %>%
-  arrange(desc(Num_Detections))
-head(tags)
-boxplot(tags$Num_Detections)
-summary(tags$Num_Detections)
+  arrange(Date_Time) %>%
+  mutate(
+    Fish_Size = case_when(
+      TL_MM >= 300 ~ "Large",
+      TL_MM >= 150 & TL_MM < 300 ~ "Medium",
+      TL_MM < 150 ~ "Small"
+    ),
+    Present = last(Date_Time) >= Date_Time_Rel + lubridate::days(14),
+    Water_Body = case_when(
+      Loop %in% c("WB.2","Nursery - A1", "Nursery2 - A3", "Nursery3 - A1", "Nursery3 - A3") ~ "Drummer Bayou",
+      Loop %in% c("WB.4","Culverts - A1", "Culverts - A2") ~ "Fish Tale Pond",
+      Loop %in% c("WB.3","NorthBridge - A1", "NorthBridge - A3") ~ "Pelican Bayou",
+      Loop %in% c("WB.1","Nursery - A2", "Nursery2 - A4", "Nursery3 - A2", "Nursery3 - A4", "NorthBridge - A2", "MainBridge - A3") ~ "Oyster Bay",
+      Loop %in% c("Culverts - A3", "MainBridge - A1", "MainBridge - A2") ~ "Out of Preserve",
+      TRUE ~ "Unknown"
+    ),
+    Previous_WB = lag(Water_Body),
+    Next_Ping = lead(Date_Time),
+    Next_Loop = lead(Loop),
+    Previous_Ping = lag(Date_Time),
+    Previous_Loop = lag(Loop),
+    WB_Btwn_Det = case_when(
+      Water_Body == "Drummer Bayou" & Previous_WB == "Drummer Bayou" ~ "Drummer Bayou",
+      Water_Body == "Fish Tale Pond" & Previous_WB == "Fish Tale Pond" ~ "Fish Tale Pond",
+      Water_Body == "Pelican Bayou" & Previous_WB == "Pelican Bayou" ~ "Pelican Bayou",
+      Water_Body == "Oyster Bay" & Previous_WB == "Oyster Bay" ~ "Oyster Bay",
+      Water_Body == "Out of Preserve" & Previous_WB == "Out of Preserve" ~ "Out of Preserve",
+      TRUE ~ "Unknown"
+    ),
+    Num_Detections = n()
+    # WB_Btwn_Rel = case_when(
+    #   Rel_Water_Body == "RA"
+    # )
+  ) %>% filter(Present == TRUE, Num_Detections >= 10)
 
-# take a sample of most-detected fish for now...
-sample_tags <- tags$Tag_ID[1:20]
-pit_sample <- pit_data %>% filter(Tag_ID %in% sample_tags)
+# detections per species, detections per tag from the ones that are left (124 tags left), size per species
+pit_sample %>% group_by(Common_Name) %>% summarise(Count = n()) %>% arrange(desc(Count))
+pit_sample %>% group_by(Common_Name) %>% summarise(Count = n_distinct(Tag_ID)) %>% arrange(desc(Count)) # 105 snook, 10 sheepshead, 9 red drum
+temp <- pit_sample %>% group_by(Tag_ID) %>% summarise(Count = n()) %>% arrange(desc(Count))
+pit_sample %>% group_by(Common_Name, Fish_Size) %>% summarise(Count = n_distinct(Tag_ID))
 
-pit_sample2 <- pit_sample %>%
-  group_by(Tag_ID, Date, Loop) %>%
-  reframe(
-    Time = first(Time),
-    Duration = mean(Duration),
-    Antenna = first(Antenna)
+# group by date to reduce points on abacus plot
+pit_sample_day <- pit_sample %>%
+  group_by(Tag_ID, Date) %>%
+  summarise(Common_Name = first(Common_Name),
+            Fish_Size = first(Fish_Size),
+            Water_Body = first(Water_Body))
+
+# abacus plot - static
+dark2_pal <- c("Dogleg Lake"="#399E76", "Drummer Bayou"="#D15E00", "Fish Tale Pond"="#7670B5", "Oyster Bay"="#DE268B", "Pelican Bayou"="#6DA602", "Out of Preserve"="#E1AA00", "Unknown"="#666666")
+ab_samp <- pit_sample %>%
+  filter(Common_Name == "Common snook", Fish_Size == "Large")
+ggplot(ab_samp) +
+  #geom_point(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
+  geom_segment(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
+  scale_color_manual(name="Water Body", values=dark2_pal) +
+  labs(x="Detection Date", y="Tag ID")
+
+# abacus plot - interactive
+plot_ly() %>%
+  add_markers(
+    data = ab_samp,
+    x = ~Date_Time,
+    y = ~Tag_ID,
+    marker = list(color = "#000000", opacity=0.5),
+    name = "Detection"
+  ) %>%
+  layout(
+    xaxis = list(title = "", gridcolor = "#cccccc"),
+    yaxis = list(title = "", gridcolor = "#cccccc"),
+    hovermode = "closest",
+    paper_bgcolor = "rgba(0,0,0,0)",  
+    plot_bgcolor = "rgba(0,0,0,0)"
+  )
+
+# pit tag antenna locations
+  antenna_loc <- data.table(
+    Antenna = c("Main Bridge", "North Bridge", "Culverts", "Nursery", "Nursery3"),
+    Ant_Longitude = c(-82.66875, -82.670719, -82.667879, -82.666687, -82.665703),
+    Ant_Latitude = c(27.506788, 27.510683, 27.512505, 27.506902, 27.507391)
   )
 
 # -------------------------- SEINE DATA ----------------------------------------
@@ -202,7 +316,7 @@ seine_data <- seine.raw %>%
       ZONE_clean == "nursery hole"                   ~ "Nurs",
       ZONE_clean == "ramp"                           ~ "Ramp",
       ZONE_clean == "w side of island"               ~ "W.isl",
-      TRUE ~ NA_character_
+      TRUE ~ NA
     ),
     Location = case_when(
       SUBSITE == "WB#1" ~ "M.Lag",
@@ -258,7 +372,7 @@ seine_data <- seine_data %>%
       Location == "Culv" ~ "Fish Tale Pond",
       Location == "Dog" ~ "Dogleg Lake",
       Location == "M.Lag" ~ "Oyster Bay"
-    )#,
+    )
     # Fish_Size = case_when(
     #   TL_MM >= 300 ~ "Large",
     #   TL_MM >= 150 & TL_MM < 300 ~ "Medium",
@@ -270,14 +384,14 @@ seine_data <- seine_data %>%
   )
 
 # exploratory seine map
-sample.seine <- seine_data[sample(nrow(seine_data), 1000, replace=FALSE),]
-wbpal <- colorFactor(palette="Set1", domain=sample.seine$Location)
-leaflet(data=sample.seine) %>% 
-  addTiles() %>% 
-  addCircleMarkers(lng=~Seine_Longitude, lat=~Seine_Latitude, 
-                   radius=2, opacity=0.5, 
-                   color=~wbpal(Location)) %>%
-  addLegend(pal=pal, values=~Location)
+# sample.seine <- seine_data[sample(nrow(seine_data), 1000, replace=FALSE),]
+# wbpal <- colorFactor(palette="Set1", domain=sample.seine$Location)
+# leaflet(data=sample.seine) %>% 
+#   addTiles() %>% 
+#   addCircleMarkers(lng=~Seine_Longitude, lat=~Seine_Latitude, 
+#                    radius=2, opacity=0.5, 
+#                    color=~wbpal(Location)) %>%
+#   addLegend(pal=pal, values=~Location)
 
 # species richness data
 rich_data_all <- seine_data %>%
@@ -297,17 +411,89 @@ rich_data_all <- seine_data %>%
     MAXDEPTH = first(MAXDEPTH),
     SUB1 = first(SUB1),
     SUB2 = first(SUB2),
-    SHADE = first(SHADE)
+    SHADE = first(SHADE),
+    Date = first(Date),
+    Month_Year = first(Month_Year)
   )
 
 # exploratory species richness map
-rpal <- colorNumeric(palette="RdYlBu", domain=rich_data$Shannon_Index, reverse=TRUE)
-leaflet(data=rich_data) %>% 
+# dark2_val <- c("Dogleg Lake", "Drummer Bayou", "Fish Tale Pond", "Out of Preserve", "Oyster Bay", "Pelican Bayou", "Unknown")
+# dark2_hex <- c("#399E76", "#D15E00", "#7670B5", "#E1AA00", "#DE268B", "#6DA602",  "#666666")
+dark2_val <- c("Dogleg Lake", "Drummer Bayou", "Fish Tale Pond", "Oyster Bay", "Pelican Bayou")
+dark2_hex <- c("#399E76", "#D15E00", "#7670B5", "#DE268B", "#6DA602")
+wbpal <- colorFactor(palette=dark2_hex, domain=dark2_val)
+rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Shannon_Index, reverse=TRUE)
+leaflet(data=rich_data_all) %>%
   #addTiles() %>%
   addProviderTiles("Esri.WorldImagery")%>%
-  addCircleMarkers(lng=~Seine_Longitude, lat=~Seine_Latitude, 
-                   radius=~Shannon_Index*2, weight=1, opacity=0.75, fillOpacity=0.75, 
-                   color=~wbpal(Location), fillColor=~rpal(Shannon_Index)) %>%
+  addCircleMarkers(lng=~Seine_Longitude, lat=~Seine_Latitude,
+                   radius=~Shannon_Index*2.5, weight=2, opacity=0.75, fillOpacity=0.75,
+                   color=~wbpal(Water_Name), fillColor=~rpal(Shannon_Index)) %>%
+  addLegend(pal=wbpal, values=dark2_val, opacity=1, title=HTML("Location")) %>%
   addLegend(pal=rpal, values=~Shannon_Index, opacity=1, title="Shannon Index")
 
-save(seine_data, rich_data_all, file="data/preprocessed.RData")
+
+# line graph: species richness over time
+# static plot
+rich_time <- rich_data_all %>% 
+  mutate(Month_Year = parse_date_time(Month_Year, orders=c("%m/%y"))) %>% 
+  group_by(Water_Name, Month_Year) %>% 
+  summarise(Avg_Shannon_Index = mean(Shannon_Index))
+ggplot(rich_time) +
+  geom_line(aes(x=Date, y=Avg_Shannon_Index, color=Water_Name)) +
+  scale_color_manual(name="Water Body", values=dark2_pal) +
+  labs(x="Detection Date", y="Mean Shannon Index")
+# interactive plot
+rich_time_plot <- plot_ly(
+  data = rich_time, x=~Month_Year, y=~Avg_Shannon_Index, color=~Water_Name,
+  colors=dark2_pal, type="scatter", mode="lines+markers",
+  text = ~paste(
+    "<b>Location:</b>", Water_Name,
+    "<br><b>Detection Date:</b>", paste0(format(Month_Year, format="%b %Y")),
+    "<br><b>Mean Shannon Index:</b>", paste0(format(Avg_Shannon_Index, digits=3))),
+  hoverinfo = "text",
+  line=list(width=2), marker=list(size=0.5, symbol="circle")
+) %>%
+  layout(
+    xaxis = list(title = "", gridcolor = "#cccccc"),
+    yaxis = list(title = "Mean Shannon Index", gridcolor = "#cccccc"),
+    legend = list(title = list(text = "Location")),
+    hovermode = "closest",
+    paper_bgcolor = "rgba(0,0,0,0)",  
+    plot_bgcolor = "rgba(0,0,0,0)"
+  )
+
+# bar graph: number of fish by species sampled by sampling event
+composition_data <- seine_data %>%
+  mutate(Month_Year = parse_date_time(Month_Year, orders=c("%m/%y"))) %>%
+  group_by(Month_Year, Common_Name) %>%
+  summarise(Frequency = n(), .groups="drop") %>%
+  mutate(Common_Name = fct_lump_n(Common_Name, n = 7, w = Frequency, other_level = "Other")) %>%
+  mutate(Common_Name = fct_relevel(Common_Name, "Other")) %>%
+  group_by(Month_Year, Common_Name) %>%
+  summarise(Frequency = sum(Frequency), .groups = "drop")
+# interactive plot
+composition_plot <- plot_ly(
+  data=composition_data, x=~Month_Year, y=~Frequency, color=~Common_Name, 
+  type="bar", #colors=~color_map
+  text = ~paste(
+    "<b>Species:</b>", Common_Name,
+    "<br><b>Date:</b>", paste0(format(Month_Year, format="%b %Y")),
+    "<br><b>Frequency:</b>", Frequency),
+  hoverinfo = 'text',
+  textposition = 'none'
+) %>%
+  layout(
+    barmode = "stack",
+    xaxis = list(title = "", gridcolor = "#cccccc"),
+    yaxis = list(title = "Frequency", gridcolor = "#cccccc"),
+    legend = list(title = list(text = "Common Name")),
+    hovermode = "closest",
+    paper_bgcolor = "rgba(0,0,0,0)",  
+    plot_bgcolor = "rgba(0,0,0,0)"
+  )
+
+
+# --------------------------- SAVE DATA ----------------------------------------
+
+save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, rich_time_plot, composition_plot, file="data/preprocessed.RData")
