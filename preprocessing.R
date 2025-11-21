@@ -1,6 +1,5 @@
 ##############################  GLOBAL  ########################################
 {
-#library(plyr)
 library(tidyverse)
 library(data.table)
 library(lubridate)
@@ -202,6 +201,7 @@ pit_sample %>% group_by(Common_Name) %>% summarise(Count = n()) %>% arrange(desc
 pit_sample %>% group_by(Common_Name) %>% summarise(Count = n_distinct(Tag_ID)) %>% arrange(desc(Count)) # 105 snook, 10 sheepshead, 9 red drum
 temp <- pit_sample %>% group_by(Tag_ID) %>% summarise(Count = n()) %>% arrange(desc(Count))
 pit_sample %>% group_by(Common_Name, Fish_Size) %>% summarise(Count = n_distinct(Tag_ID))
+sort(unique(pit_data$Loop))
 
 # group by date to reduce points on abacus plot
 pit_sample_day <- pit_sample %>%
@@ -210,30 +210,68 @@ pit_sample_day <- pit_sample %>%
             Fish_Size = first(Fish_Size),
             Water_Body = first(Water_Body))
 
-# abacus plot - static
+# abacus plot palette
 dark2_pal <- c("Dogleg Lake"="#399E76", "Drummer Bayou"="#D15E00", "Fish Tale Pond"="#7670B5", "Oyster Bay"="#DE268B", "Pelican Bayou"="#6DA602", "Out of Preserve"="#E1AA00", "Unknown"="#666666")
-ab_samp <- pit_sample %>%
-  filter(Common_Name == "Common snook", Fish_Size == "Large")
-ggplot(ab_samp) +
-  #geom_point(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
-  geom_segment(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
-  scale_color_manual(name="Water Body", values=dark2_pal) +
-  labs(x="Detection Date", y="Tag ID")
+
+# ggplot(ab_samp) +
+#   #geom_point(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
+#   geom_segment(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
+#   scale_color_manual(name="Water Body", values=dark2_pal) +
+#   labs(x="Detection Date", y="Tag ID")
+
+# arrange the tag order for the plot
+tag_order <- pit_sample_day %>%
+  group_by(Tag_ID) %>%
+  summarise(First_Det = min(Date)) %>%
+  arrange(desc(First_Det)) %>%
+  pull(Tag_ID)
+
+ab_samp <- pit_sample_day %>%
+  filter(Common_Name == "Common snook", Fish_Size == "Large")%>%
+  mutate(Tag_ID = factor(Tag_ID, levels = tag_order))
+
+# make a new segment when waterbody changes
+segments <- ab_samp %>%
+  arrange(Tag_ID, Date) %>%
+  group_by(Tag_ID) %>%
+  mutate(
+    Segment_ID = cumsum(Water_Body != lag(Water_Body, default = first(Water_Body)))
+  ) %>%
+  group_by(Tag_ID, Segment_ID, Water_Body) %>%
+  summarise(
+    Common_Name = first(Common_Name),
+    Fish_Size = first(Fish_Size),
+    Start_Date = min(Date),
+    End_Date   = max(Date),
+    .groups = "drop"
+  )
 
 # abacus plot - interactive
 plot_ly() %>%
+  add_segments(
+    data = segments,
+    x = ~Start_Date, xend = ~End_Date,
+    y = ~Tag_ID, yend = ~Tag_ID,
+    color = ~Water_Body,
+    colors = dark2_pal,
+    hoverinfo = "none",
+    line = list(width = 5)
+  ) %>%
   add_markers(
-    data = ab_samp,
-    x = ~Date_Time,
-    y = ~Tag_ID,
-    marker = list(color = "#000000", opacity=0.5),
-    name = "Detection"
+    data = ab_samp, x = ~Date, y = ~Tag_ID,
+    color=~Water_Body, colors=dark2_pal, marker = list(size=4),
+    text = ~paste(
+      "<b>Location:</b>", Water_Body,
+      "<br><b>Detection Date:</b>", paste0(format(Date, format="%b %d, %Y")),
+      "<br><b>Tag ID:</b>", Tag_ID),
+    hoverinfo = "text", showlegend=FALSE
   ) %>%
   layout(
-    xaxis = list(title = "", gridcolor = "#cccccc"),
-    yaxis = list(title = "", gridcolor = "#cccccc"),
+    xaxis = list(title = "Detection Date", gridcolor = "#cccccc"),
+    yaxis = list(title = "Tag ID", gridcolor = "#cccccc"),
+    legend = list(title = list(text = "Location")),
     hovermode = "closest",
-    paper_bgcolor = "rgba(0,0,0,0)",  
+    paper_bgcolor = "rgba(0,0,0,0)",
     plot_bgcolor = "rgba(0,0,0,0)"
   )
 
@@ -243,6 +281,12 @@ plot_ly() %>%
     Ant_Longitude = c(-82.66875, -82.670719, -82.667879, -82.666687, -82.665703),
     Ant_Latitude = c(27.506788, 27.510683, 27.512505, 27.506902, 27.507391)
   )
+# loop locations 
+  # loops_loc <- data.table(
+  #   Loop = c("Culverts"),
+  #   Loop_Longitude = c(),
+  #   Loop_Latitude = c()
+  # )
 
 # -------------------------- SEINE DATA ----------------------------------------
 
@@ -252,29 +296,24 @@ unique(seine.raw$ZONE)
 unique(seine.raw$SUBSITE)
 
 # preprocessing
-seine.raw$Date = as.POSIXct(strptime(seine.raw$DATE, "%d-%b-%y", tz="EST"))
-seine.raw$Date_Time = as.POSIXct(strptime(paste(seine.raw$Date, seine.raw$NETTIME),"%Y-%m-%d%H:%M"))
-seine.raw$Month = month(seine.raw$Date)
-seine.raw$Month_Year = format(seine.raw$Date, format="%m/%y")
-seine.raw$DATE = as.POSIXct(strptime(seine.raw$DATE, format="%d-%b-%y"))
-seine.raw$Date_Cond = format(seine.raw$DATE, "%Y%m%d")
-seine.raw <- seine.raw %>%
+seine_clean <- seine.raw %>%
   mutate(
-    ZONE_clean = ZONE |> 
-      str_replace_all('"', "") |>      # remove all quotes
-      str_trim() |>                    # trim white space
-      str_to_lower(),                  # lowercase 
+    Date = as.POSIXct(strptime(DATE, "%d-%b-%y", tz="EST")),
+    Date_Time = as.POSIXct(strptime(paste(Date, NETTIME),"%Y-%m-%d%H:%M")),
+    Month = month(Date),
+    Month_Year = format(Date, format="%m/%y"),
+    DATE = as.POSIXct(strptime(DATE, format="%d-%b-%y")),
+    Date_Cond = format(DATE, "%Y%m%d"),
+    ZONE_clean = ZONE %>% 
+      str_replace_all('"', "") %>% # remove all quotes
+      str_trim() %>% # trim white space
+      str_to_lower(), # lowercase 
     Season = case_when(
       Month %in% c(1,2,3) ~ "Winter",
       Month %in% c(4,5,6) ~ "Spring",
       Month %in% c(7,8,9) ~ "Summer",
       Month %in% c(10,11,12) ~ "Fall"
-    )
-  )
-#sort(unique(seine.raw$ZONE_clean))
-
-seine_data <- seine.raw %>%
-  mutate(
+    ),
     Zone_Abbr = case_when(
       ZONE_clean == "y"                              ~ "Y",
       ZONE_clean == "bottom of y"                    ~ "Bot.Y",
@@ -328,6 +367,7 @@ seine_data <- seine.raw %>%
     ),
     Seine_ID = str_c(Date_Cond, "_", Location, "_", Zone_Abbr, "_T", REP)
   )
+#sort(unique(seine.raw$ZONE_clean))
 
 # check for unmatched values
 # seine.clean %>% 
@@ -347,7 +387,7 @@ unique(seine_data[seine_data$VERT == ""]$`COMMON NAME`)
 unique(sort(seine_data[seine_data$VERT == TRUE]$Common_Name))
 
 # cleaning for species information
-seine_data <- seine_data %>%
+seine_data <- seine_clean %>%
   mutate(
     Common_Name = case_when(
       `COMMON NAME` == "Atlantic\xa0butterfish" ~ "Atlantic butterfish",
@@ -373,11 +413,6 @@ seine_data <- seine_data %>%
       Location == "Dog" ~ "Dogleg Lake",
       Location == "M.Lag" ~ "Oyster Bay"
     )
-    # Fish_Size = case_when(
-    #   TL_MM >= 300 ~ "Large",
-    #   TL_MM >= 150 & TL_MM < 300 ~ "Medium",
-    #   TL_MM < 150 ~ "Small"
-    # )
   ) %>%
   rename(
     Seine_Longitude = `EW COORD`, Seine_Latitude = `NS COORD`
@@ -449,10 +484,10 @@ rich_time_plot <- plot_ly(
   colors=dark2_pal, type="scatter", mode="lines+markers",
   text = ~paste(
     "<b>Location:</b>", Water_Name,
-    "<br><b>Detection Date:</b>", paste0(format(Month_Year, format="%b %Y")),
+    "<br><b>Seine Month:</b>", paste0(format(Month_Year, format="%b %Y")),
     "<br><b>Mean Shannon Index:</b>", paste0(format(Avg_Shannon_Index, digits=3))),
   hoverinfo = "text",
-  line=list(width=2), marker=list(size=0.5, symbol="circle")
+  line=list(width=2), marker=list(size=0.5, symbol="circle", color="transparent")
 ) %>%
   layout(
     xaxis = list(title = "", gridcolor = "#cccccc"),
@@ -478,7 +513,7 @@ composition_plot <- plot_ly(
   type="bar", #colors=~color_map
   text = ~paste(
     "<b>Species:</b>", Common_Name,
-    "<br><b>Date:</b>", paste0(format(Month_Year, format="%b %Y")),
+    "<br><b>Seine Month:</b>", paste0(format(Month_Year, format="%b %Y")),
     "<br><b>Frequency:</b>", Frequency),
   hoverinfo = 'text',
   textposition = 'none'
