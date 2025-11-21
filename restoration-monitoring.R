@@ -4,7 +4,7 @@
 #   - 
 
 ##############################  GLOBAL  ########################################
-#library(plyr)
+{
 library(tidyverse)
 library(data.table)
 library(lubridate)
@@ -22,7 +22,7 @@ library(shinycssloaders)
 library(leaflet.extras2)
 library(thematic)
 library(progress)
-
+}
 # ---------------------------- FUNCTIONS ---------------------------------------
 # function to do the opposite of %in%
 `%nin%` = Negate(`%in%`)
@@ -67,20 +67,17 @@ card4 <- card(
 # --------------------------- SIDEBAR ------------------------------------------
 sidebar <- sidebar(
   width=400,
-  helpText("Use the following selections to update the data displayed in the plots."),
-  pickerInput("select_species", label="Select Species", choices = c("Common snook", "Sheepshead", "Red drum"), 
-               selected = "Common snook", #selectize = TRUE, multiple=TRUE,
-               options = pickerOptions(container = "body", liveSearch = TRUE, actionsBox = TRUE,
-                                       style = "btn-outline-primary",
-                                       selectedTextFormat = "count > 2", countSelectedText = "{0} species selected"), width = "100%"),
+  helpText("Use the following selections to update the data displayed in the habitat use plot."),
+  selectInput("select_species", label="Select Species", choices = c("Common snook", "Sheepshead", "Red drum"), 
+               selected = "Common snook"), 
   checkboxGroupInput("size", "Fish Size", 
                      choiceNames = list(HTML("<b>Large</b> (> 300 mm)"),
                                         HTML("<b>Medium</b> (150 mm - 300 mm)"), 
                                         HTML("<b>Small</b> (< 150 mm)")), 
-                     selected = list("Large", "Medium", "Small"),
+                     selected = list("Medium"),
                      choiceValues = list("Large", "Medium", "Small")),
   hr(),
-  helpText("Use the following selections to update the data displayed on the map."),
+  helpText("Use the following selections to update the data displayed on the species richness map."),
   sliderInput("years", label = "Time Range", min(seine_data$YEAR), max(seine_data$YEAR),
               value = c(min(seine_data$YEAR), max(seine_data$YEAR)), sep = "", round = TRUE, step = 1),
   checkboxGroupInput("seasons", "Season", 
@@ -89,8 +86,7 @@ sidebar <- sidebar(
                                          HTML("<b>Summer</b> (Jul, Aug, Sep)"), 
                                          HTML("<b>Fall</b> (Oct, Nov, Dec)")), 
                     selected = list("Winter","Spring", "Summer", "Fall"),
-                    choiceValues = list("Winter","Spring", "Summer", "Fall"))#,
-  #actionButton("update", "Update Map", icon=icon("refresh"), class="btn btn-primary", style = "color: white;")
+                    choiceValues = list("Winter","Spring", "Summer", "Fall"))
 ) # end sidebar
 
 # ----------------------------- MAIN -------------------------------------------
@@ -139,8 +135,12 @@ ui <- tagList(
     theme = theme,
     sidebar = sidebar,
     layout_columns(col_widths = c(2,5,5), # or layout_column_wrap()
-      value_box(title = "Tagged Fish", value = textOutput("tagged_fish"), 
-                showcase = icon("fish"), theme = "text-primary"),
+      layout_column_wrap(
+        value_box(title = "Tagged Fish", value = textOutput("tagged_fish"), 
+                  showcase = icon("fish"), showcase_layout = "top right", theme = "text-primary"),
+        value_box(title = "Seines", value = textOutput("seine_nums"), 
+                  showcase = bsicons::bs_icon("bucket"), showcase_layout = "top right", theme = "text-primary")
+      ),
       card2,  
       card3), 
     layout_columns(col_widths = c(8, 4), 
@@ -161,12 +161,13 @@ server <- function(input, output, session) {
       title = "About the Data",
       HTML("
       <div style='line-height: 1.6; font-size: 16px;'>
-      <p>The data displayed in this app was collected through XXX (2016–2024). This effort is part of the Fisheries Ecology and Enhancement
+      <p>The data displayed in this app was collected through seining and PIT tag antenna arrays at Robinson Preserve
+      (2022–2025). This effort is part of the Fisheries Ecology and Enhancement
       Research Program at Mote Marine Laboratory.</p>
       <p>
         For more information, please visit 
-        <a href='https://www.mote.org' target='_blank' style='color: #00aae7; text-decoration: underline;'>
-          mote.org.
+        <a href='https://mote.org/research/program/fisheries-ecology-enhancement/' target='_blank' style='color: #00aae7; text-decoration: underline;'>
+          mote.org/research/program/fisheries-ecology-enhancement.
         </a>
       </p>
     </div>
@@ -179,10 +180,38 @@ server <- function(input, output, session) {
   # ---------------------------- DATA ------------------------------------------
   
   # habitat use
+  tags_order <- reactive({
+    pit_sample_day %>%
+      filter(Common_Name %in% input$select_species, 
+             Fish_Size %in% input$size) %>%
+      group_by(Tag_ID) %>%
+      summarise(First_Det = min(Date)) %>%
+      arrange(desc(First_Det)) %>%
+      pull(Tag_ID)
+  })
+  
   hab_use <- reactive({
     pit_sample_day %>%
       filter(Common_Name %in% input$select_species, 
-             Fish_Size %in% input$size)
+             Fish_Size %in% input$size) %>%
+      mutate(Tag_ID = factor(Tag_ID, levels = tags_order()))
+  })
+  
+  hab_segments <- reactive({
+    hab_use() %>%
+      arrange(Tag_ID, Date) %>%
+      group_by(Tag_ID) %>%
+      mutate(
+        Segment_ID = cumsum(Water_Body != lag(Water_Body, default = first(Water_Body)))
+      ) %>%
+      group_by(Tag_ID, Segment_ID, Water_Body) %>%
+      summarise(
+        Common_Name = first(Common_Name),
+        Fish_Size = first(Fish_Size),
+        Start_Date = min(Date),
+        End_Date   = max(Date),
+        .groups = "drop"
+      )
   })
   
   # species richness
@@ -211,23 +240,44 @@ server <- function(input, output, session) {
       )
   })
   
-  # --------------------------- TABLES -----------------------------------------
+  # ---------------------------- TEXT ------------------------------------------
+  # print total observations for filtered data in ui
+  output$tagged_fish <- renderText({
+    format(n_distinct(hab_use()$Tag_ID), big.mark=",")
+  })
   
+  output$seine_nums <- renderText({
+    format(n_distinct(rich_data()$Seine_ID), big.mark=",")
+  })
   
   # --------------------------- PLOTS ------------------------------------------
   # abacus plot
   output$abacus_plot <- renderPlotly({
     plot_ly() %>%
+      add_segments(
+        data = hab_segments(),
+        x = ~Start_Date, xend = ~End_Date,
+        y = ~Tag_ID, yend = ~Tag_ID,
+        color = ~Water_Body,
+        colors = dark2_pal,
+        hoverinfo = "none",
+        line = list(width = 5)
+      ) %>%
       add_markers(
         data = hab_use(), x = ~Date, y = ~Tag_ID,
-        color=~Water_Body, colors=dark2_pal
+        color=~Water_Body, colors=dark2_pal, marker = list(size=4),
+        text = ~paste(
+          "<b>Location:</b>", Water_Body,
+          "<br><b>Detection Date:</b>", paste0(format(Date, format="%b %d, %Y")),
+          "<br><b>Tag ID:</b>", Tag_ID),
+        hoverinfo = "text", showlegend=FALSE
       ) %>%
       layout(
         xaxis = list(title = "Detection Date", gridcolor = "#cccccc"),
         yaxis = list(title = "Tag ID", gridcolor = "#cccccc"),
         legend = list(title = list(text = "Location")),
         hovermode = "closest",
-        paper_bgcolor = "rgba(0,0,0,0)",  
+        paper_bgcolor = "rgba(0,0,0,0)",
         plot_bgcolor = "rgba(0,0,0,0)"
       )
   })
@@ -243,16 +293,16 @@ server <- function(input, output, session) {
   })
   
   # ---------------------------- MAPS ------------------------------------------
+  # species richness map
   output$map <- renderLeaflet({
-    #wbpal <- colorFactor(palette="Dark2", domain=seine_data$Water_Name)
     rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Shannon_Index, reverse=TRUE)
-    #icon <- makeAwesomeIcon(icon="tower-broadcast", library="fa", markerColor = "darkblue", iconColor = "#FFFFFF")
+    icon <- makeAwesomeIcon(icon="tower-broadcast", library="fa", markerColor = "darkblue", iconColor = "#FFFFFF")
     
   if (nrow(rich_data()) >0 ) { 
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery")%>%
       setView(lng=-82.66670, lat=27.50980, zoom=16)%>%
-      #addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, popup=~Antenna, icon=icon) %>%
+      addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, icon=icon) %>%
       addCircleMarkers(data=rich_data(), lng=~Seine_Longitude, lat=~Seine_Latitude, 
                        radius=~Shannon_Index*2.5, weight=2, opacity=0.75, fillOpacity=0.75, 
                        color=~wbpal(Water_Name), fillColor=~rpal(Shannon_Index)) %>%
