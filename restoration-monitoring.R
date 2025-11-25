@@ -70,7 +70,7 @@ card4 <- card(
 
 # --------------------------- SIDEBAR ------------------------------------------
 sidebar <- sidebar(
-  width=400,
+  width=350,
   helpText("Use the following selections to update the data displayed in the habitat use plot."),
   selectInput("select_species", label="Select Species", choices = c("Common snook", "Striped mullet"), 
                selected = "Common snook"), 
@@ -78,7 +78,7 @@ sidebar <- sidebar(
                      choiceNames = list(HTML("<b>Adult</b>"),
                                         HTML("<b>Subadult</b>"), 
                                         HTML("<b>Juvenile</b>")), 
-                     selected = list("Adult"),
+                     selected = list("Adult", "Subadult", "Juvenile"),
                      choiceValues = list("Adult", "Subadult", "Juvenile")),
   hr(),
   helpText("Use the following selections to update the data displayed on the species richness map."),
@@ -319,29 +319,28 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Species_Richness, reverse=TRUE)
     icon <- makeAwesomeIcon(icon="tower-broadcast", library="fa", markerColor = "darkblue", iconColor = "#FFFFFF")
-    popper <- paste0(
-      "<strong>Species Richness: </strong>", rich_data()$Species_Richness,
-      "<br><strong>Seine ID: </strong>", rich_data()$Seine_ID
-      )
-    
-  if (nrow(rich_data()) >0 ) { 
     leaflet() %>%
-      addProviderTiles("Esri.WorldImagery")%>%
-      setView(lng=-82.66670, lat=27.50980, zoom=16)%>%
-      addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, icon=icon) %>%
-      addCircleMarkers(data=rich_data(), lng=~Seine_Longitude, lat=~Seine_Latitude, 
-                       radius=~Species_Richness/1.5, weight=2, opacity=0.75, fillOpacity=0.75, 
-                       color=~wbpal(Water_Name), fillColor=~rpal(Species_Richness), popup=popper) %>%
-      leaflet::addLegend(pal=wbpal, data=seine_data, values=~Water_Name, opacity=1, title=HTML("Location")) %>%
-      leaflet::addLegend(pal=rpal, data=rich_data_all, values=~Species_Richness, opacity=1, title=HTML("Species<br>Richness"))
-  } else {
-    leaflet() %>%
-      addProviderTiles("Esri.WorldImagery")%>%
+      addProviderTiles("Esri.WorldImagery") %>%
       setView(lng=-82.66670, lat=27.50980, zoom=16) %>%
       addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, icon=icon) %>%
       leaflet::addLegend(pal=wbpal, data=seine_data, values=~Water_Name, opacity=1, title=HTML("Location")) %>%
       leaflet::addLegend(pal=rpal, data=rich_data_all, values=~Species_Richness, opacity=1, title=HTML("Species<br>Richness"))
-  }
+  })
+  
+  observe({
+    rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Species_Richness, reverse=TRUE)
+    popper <- paste0("<strong>Species Richness: </strong>", rich_data()$Species_Richness,
+                     "<br><strong>Seine ID: </strong>", rich_data()$Seine_ID)
+    if (nrow(rich_data()) > 0 ) {
+    leafletProxy("map") %>%
+      clearMarkers() %>%
+      addCircleMarkers(data=rich_data(), lng=~Seine_Longitude, lat=~Seine_Latitude, 
+                      radius=~Species_Richness/1.5, weight=2, opacity=0.75, fillOpacity=0.75, 
+                      color=~wbpal(Water_Name), fillColor=~rpal(Species_Richness), popup=popper) 
+    } else {
+      leafletProxy("map") %>%
+        clearMarkers()
+    }
   })
   
 } # end server
