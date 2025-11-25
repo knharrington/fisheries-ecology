@@ -17,6 +17,7 @@ library(shiny)
 library(shinyWidgets)
 library(htmlwidgets)
 library(bslib)
+library(bsicons)
 library(showtext)
 library(shinycssloaders)
 library(leaflet.extras2)
@@ -26,7 +27,6 @@ library(progress)
 # ---------------------------- FUNCTIONS ---------------------------------------
 # function to do the opposite of %in%
 `%nin%` = Negate(`%in%`)
-
 
 # ---------------------------- OPTIONS -----------------------------------------
 
@@ -41,13 +41,17 @@ load("data/preprocessed.RData")
 card1 <- card(
   full_screen = TRUE,
   height = "800px",
-  card_header("Habitat Use"),
+  card_header("Habitat Use", 
+              tooltip(
+                bs_icon("info-circle"),
+                "Up to 40 fish are randomly selected for display to keep the plot readable."
+                )),
   card_body(plotlyOutput("abacus_plot"))
 )
 # bar graph
 card2 <- card(
   full_screen = TRUE,
-  card_header("Seined Fish Composition"),
+  card_header("Tagged Fish Composition"),
   card_body(plotlyOutput("fish_comp"))
 )
 # line graph
@@ -68,14 +72,14 @@ card4 <- card(
 sidebar <- sidebar(
   width=400,
   helpText("Use the following selections to update the data displayed in the habitat use plot."),
-  selectInput("select_species", label="Select Species", choices = c("Common snook", "Sheepshead", "Red drum"), 
+  selectInput("select_species", label="Select Species", choices = c("Common snook", "Striped mullet"), 
                selected = "Common snook"), 
-  checkboxGroupInput("size", "Fish Size", 
-                     choiceNames = list(HTML("<b>Large</b> (> 300 mm)"),
-                                        HTML("<b>Medium</b> (150 mm - 300 mm)"), 
-                                        HTML("<b>Small</b> (< 150 mm)")), 
-                     selected = list("Medium"),
-                     choiceValues = list("Large", "Medium", "Small")),
+  checkboxGroupInput("size", "Fish Age Class", 
+                     choiceNames = list(HTML("<b>Adult</b>"),
+                                        HTML("<b>Subadult</b>"), 
+                                        HTML("<b>Juvenile</b>")), 
+                     selected = list("Adult"),
+                     choiceValues = list("Adult", "Subadult", "Juvenile")),
   hr(),
   helpText("Use the following selections to update the data displayed on the species richness map."),
   sliderInput("years", label = "Time Range", min(seine_data$YEAR), max(seine_data$YEAR),
@@ -134,7 +138,7 @@ ui <- tagList(
   page_sidebar(
     theme = theme,
     sidebar = sidebar,
-    layout_columns(col_widths = c(2,5,5), # or layout_column_wrap()
+    layout_columns(col_widths = c(2,5,5),
       layout_column_wrap(
         value_box(title = "Tagged Fish", value = textOutput("tagged_fish"), 
                   showcase = icon("fish"), showcase_layout = "top right", theme = "text-primary"),
@@ -179,25 +183,33 @@ server <- function(input, output, session) {
   
   # ---------------------------- DATA ------------------------------------------
   
-  # habitat use
+  # habitat use tag order for plotting (random sample of 30 fish)
   tags_order <- reactive({
+    req(length(input$size) > 0)
+    set.seed(123)
     pit_sample_day %>%
       filter(Common_Name %in% input$select_species, 
-             Fish_Size %in% input$size) %>%
+             Fish_Class %in% input$size) %>%
       group_by(Tag_ID) %>%
       summarise(First_Det = min(Date)) %>%
+      slice_sample(n=40) %>%
       arrange(desc(First_Det)) %>%
       pull(Tag_ID)
   })
   
+  # habitat use dataset
   hab_use <- reactive({
+    req(tags_order(), length(input$size) > 0)
     pit_sample_day %>%
       filter(Common_Name %in% input$select_species, 
-             Fish_Size %in% input$size) %>%
+             Fish_Class %in% input$size,
+             Tag_ID %in% tags_order()) %>%
       mutate(Tag_ID = factor(Tag_ID, levels = tags_order()))
   })
   
+  # habitat use segment creation
   hab_segments <- reactive({
+    req(hab_use())
     hab_use() %>%
       arrange(Tag_ID, Date) %>%
       group_by(Tag_ID) %>%
@@ -207,7 +219,7 @@ server <- function(input, output, session) {
       group_by(Tag_ID, Segment_ID, Water_Body) %>%
       summarise(
         Common_Name = first(Common_Name),
-        Fish_Size = first(Fish_Size),
+        Fish_Size = first(Fish_Class),
         Start_Date = min(Date),
         End_Date   = max(Date),
         .groups = "drop"
@@ -242,17 +254,27 @@ server <- function(input, output, session) {
   
   # ---------------------------- TEXT ------------------------------------------
   # print total observations for filtered data in ui
+  tagged_fish_data <- reactive({
+    pit_sample_day %>%
+      filter(Common_Name %in% input$select_species, 
+             Fish_Class %in% input$size)
+  })
   output$tagged_fish <- renderText({
-    format(n_distinct(hab_use()$Tag_ID), big.mark=",")
+    format(n_distinct(tagged_fish_data()$Tag_ID), big.mark=",")
   })
   
   output$seine_nums <- renderText({
-    format(n_distinct(rich_data()$Seine_ID), big.mark=",")
+    if (length(input$seasons) > 0) {
+      format(n_distinct(rich_data()$Seine_ID), big.mark=",")
+    } else {
+      0
+    }
   })
   
   # --------------------------- PLOTS ------------------------------------------
   # abacus plot
   output$abacus_plot <- renderPlotly({
+    req(hab_segments(), hab_use())
     plot_ly() %>%
       add_segments(
         data = hab_segments(),
@@ -295,8 +317,12 @@ server <- function(input, output, session) {
   # ---------------------------- MAPS ------------------------------------------
   # species richness map
   output$map <- renderLeaflet({
-    rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Shannon_Index, reverse=TRUE)
+    rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Species_Richness, reverse=TRUE)
     icon <- makeAwesomeIcon(icon="tower-broadcast", library="fa", markerColor = "darkblue", iconColor = "#FFFFFF")
+    popper <- paste0(
+      "<strong>Species Richness: </strong>", rich_data()$Species_Richness,
+      "<br><strong>Seine ID: </strong>", rich_data()$Seine_ID
+      )
     
   if (nrow(rich_data()) >0 ) { 
     leaflet() %>%
@@ -304,15 +330,17 @@ server <- function(input, output, session) {
       setView(lng=-82.66670, lat=27.50980, zoom=16)%>%
       addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, icon=icon) %>%
       addCircleMarkers(data=rich_data(), lng=~Seine_Longitude, lat=~Seine_Latitude, 
-                       radius=~Shannon_Index*2.5, weight=2, opacity=0.75, fillOpacity=0.75, 
-                       color=~wbpal(Water_Name), fillColor=~rpal(Shannon_Index)) %>%
+                       radius=~Species_Richness/1.5, weight=2, opacity=0.75, fillOpacity=0.75, 
+                       color=~wbpal(Water_Name), fillColor=~rpal(Species_Richness), popup=popper) %>%
       leaflet::addLegend(pal=wbpal, data=seine_data, values=~Water_Name, opacity=1, title=HTML("Location")) %>%
-      leaflet::addLegend(pal=rpal, data=rich_data_all, values=~Shannon_Index, opacity=1, title=HTML("Shannon<br>Index"))
+      leaflet::addLegend(pal=rpal, data=rich_data_all, values=~Species_Richness, opacity=1, title=HTML("Species<br>Richness"))
   } else {
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery")%>%
       setView(lng=-82.66670, lat=27.50980, zoom=16) %>%
-      addMarkers(data=antenna_loc, lng~Ant_Longitude, lat=~Ant_Latitude)
+      addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, icon=icon) %>%
+      leaflet::addLegend(pal=wbpal, data=seine_data, values=~Water_Name, opacity=1, title=HTML("Location")) %>%
+      leaflet::addLegend(pal=rpal, data=rich_data_all, values=~Species_Richness, opacity=1, title=HTML("Species<br>Richness"))
   }
   })
   
