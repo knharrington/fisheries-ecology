@@ -178,10 +178,10 @@ pit_sample <- pittag_data_comp %>%
     ),
     Present = last(Date_Time) >= Date_Time_Rel + lubridate::days(14),
     Water_Body = case_when(
-      Loop %in% c("WB.2","Nursery - A1", "Nursery2 - A3", "Nursery3 - A1", "Nursery3 - A3") ~ "Drummer Bayou",
-      Loop %in% c("WB.4","Culverts - A1", "Culverts - A2") ~ "Fish Tale Pond",
-      Loop %in% c("WB.3","NorthBridge - A1", "NorthBridge - A3") ~ "Pelican Bayou",
-      Loop %in% c("WB.1","Nursery - A2", "Nursery2 - A4", "Nursery3 - A2", "Nursery3 - A4", "NorthBridge - A2", "MainBridge - A3") ~ "Oyster Bay",
+      Loop %in% c("Nursery - A1", "Nursery - A3", "Nursery1 - A1", "Nursery2 - A1", "Nursery2 - A3", "Nursery3 - A1", "Nursery3 - A3") ~ "Drummer Bayou",
+      Loop %in% c("Culverts - A1", "Culverts - A2", "Culverts - A4") ~ "Fish Tale Pond",
+      Loop %in% c("NorthBridge - A1", "NorthBridge - A3") ~ "Pelican Bayou",
+      Loop %in% c("Nursery - A2", "Nursery - A4", "Nursery1 - A2", "Nursery2 - A2", "Nursery2 - A4", "Nursery3 - A2", "Nursery3 - A4", "NorthBridge - A2", "MainBridge - A3") ~ "Oyster Bay",
       Loop %in% c("Culverts - A3", "MainBridge - A1", "MainBridge - A2") ~ "Out of Preserve",
       TRUE ~ "Unknown"
     ),
