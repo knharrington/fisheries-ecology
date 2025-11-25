@@ -1,5 +1,5 @@
 # TO DO:
-#   - preprocessing needs its own script; use .RData object for dataset
+#   - 
 # NOTES:
 #   - 
 
@@ -10,19 +10,15 @@ library(data.table)
 library(lubridate)
 library(leaflet)
 library(plotly)
-#library(ggsvg)
-#library(ggimage)
-#library(glue)
 library(shiny)
 library(shinyWidgets)
 library(htmlwidgets)
 library(bslib)
 library(bsicons)
 library(showtext)
-library(shinycssloaders)
-library(leaflet.extras2)
+# library(shinycssloaders)
+# library(leaflet.extras2)
 library(thematic)
-library(progress)
 }
 # ---------------------------- FUNCTIONS ---------------------------------------
 # function to do the opposite of %in%
@@ -72,8 +68,8 @@ card4 <- card(
 sidebar <- sidebar(
   width=350,
   helpText("Use the following selections to update the data displayed in the habitat use plot."),
-  selectInput("select_species", label="Select Species", choices = c("Common snook", "Striped mullet"), 
-               selected = "Common snook"), 
+  selectInput("select_species", label="Select Species", 
+              choices = c("Common snook", "Striped mullet"), selected = "Common snook"), 
   checkboxGroupInput("size", "Fish Age Class", 
                      choiceNames = list(HTML("<b>Adult</b>"),
                                         HTML("<b>Subadult</b>"), 
@@ -95,7 +91,7 @@ sidebar <- sidebar(
 
 # ----------------------------- MAIN -------------------------------------------
 # automatically adjust ggplot themes
-thematic::thematic_shiny(font="auto")
+thematic::thematic_shiny(font = "auto")
 
 # custom Mote theme
 theme <- bs_theme(
@@ -138,7 +134,7 @@ ui <- tagList(
   page_sidebar(
     theme = theme,
     sidebar = sidebar,
-    layout_columns(col_widths = c(2,5,5),
+    layout_columns(col_widths = c(2, 5, 5),
       layout_column_wrap(
         value_box(title = "Tagged Fish", value = textOutput("tagged_fish"), 
                   showcase = icon("fish"), showcase_layout = "top right", theme = "text-primary"),
@@ -183,7 +179,7 @@ server <- function(input, output, session) {
   
   # ---------------------------- DATA ------------------------------------------
   
-  # habitat use tag order for plotting (random sample of 30 fish)
+  # habitat use tag order for plotting (random sample)
   tags_order <- reactive({
     req(length(input$size) > 0)
     set.seed(123)
@@ -192,7 +188,7 @@ server <- function(input, output, session) {
              Fish_Class %in% input$size) %>%
       group_by(Tag_ID) %>%
       summarise(First_Det = min(Date)) %>%
-      slice_sample(n=40) %>%
+      slice_sample(n = 40) %>%
       arrange(desc(First_Det)) %>%
       pull(Tag_ID)
   })
@@ -221,7 +217,7 @@ server <- function(input, output, session) {
         Common_Name = first(Common_Name),
         Fish_Size = first(Fish_Class),
         Start_Date = min(Date),
-        End_Date   = max(Date),
+        End_Date = max(Date),
         .groups = "drop"
       )
   })
@@ -260,12 +256,12 @@ server <- function(input, output, session) {
              Fish_Class %in% input$size)
   })
   output$tagged_fish <- renderText({
-    format(n_distinct(tagged_fish_data()$Tag_ID), big.mark=",")
+    format(n_distinct(tagged_fish_data()$Tag_ID), big.mark = ",")
   })
   
   output$seine_nums <- renderText({
     if (length(input$seasons) > 0) {
-      format(n_distinct(rich_data()$Seine_ID), big.mark=",")
+      format(n_distinct(rich_data()$Seine_ID), big.mark = ",")
     } else {
       0
     }
@@ -287,12 +283,12 @@ server <- function(input, output, session) {
       ) %>%
       add_markers(
         data = hab_use(), x = ~Date, y = ~Tag_ID,
-        color=~Water_Body, colors=dark2_pal, marker = list(size=4),
+        color = ~Water_Body, colors = dark2_pal, marker = list(size = 4),
         text = ~paste(
           "<b>Location:</b>", Water_Body,
           "<br><b>Detection Date:</b>", paste0(format(Date, format="%b %d, %Y")),
           "<br><b>Tag ID:</b>", Tag_ID),
-        hoverinfo = "text", showlegend=FALSE
+        hoverinfo = "text", showlegend = FALSE
       ) %>%
       layout(
         xaxis = list(title = "Detection Date", gridcolor = "#cccccc"),
@@ -317,26 +313,26 @@ server <- function(input, output, session) {
   # ---------------------------- MAPS ------------------------------------------
   # species richness map
   output$map <- renderLeaflet({
-    rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Species_Richness, reverse=TRUE)
-    icon <- makeAwesomeIcon(icon="tower-broadcast", library="fa", markerColor = "darkblue", iconColor = "#FFFFFF")
+    rpal <- colorNumeric(palette = "RdYlBu", domain = rich_data_all$Species_Richness, reverse = TRUE)
+    icon <- makeAwesomeIcon(icon = "tower-broadcast", library = "fa", markerColor = "darkblue", iconColor = "#FFFFFF")
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery") %>%
-      setView(lng=-82.66670, lat=27.50980, zoom=16) %>%
-      addAwesomeMarkers(data=antenna_loc, lng=~Ant_Longitude, lat=~Ant_Latitude, icon=icon) %>%
-      leaflet::addLegend(pal=wbpal, data=seine_data, values=~Water_Name, opacity=1, title=HTML("Location")) %>%
-      leaflet::addLegend(pal=rpal, data=rich_data_all, values=~Species_Richness, opacity=1, title=HTML("Species<br>Richness"))
+      setView(lng = -82.66670, lat = 27.50980, zoom = 16) %>%
+      addAwesomeMarkers(data = antenna_loc, lng = ~Ant_Longitude, lat = ~Ant_Latitude, icon = icon) %>%
+      leaflet::addLegend(pal = wbpal, data = seine_data, values = ~Water_Name, opacity = 1, title = HTML("Location")) %>%
+      leaflet::addLegend(pal = rpal, data = rich_data_all, values = ~Species_Richness, opacity = 1, title = HTML("Species<br>Richness"))
   })
   
   observe({
-    rpal <- colorNumeric(palette="RdYlBu", domain=rich_data_all$Species_Richness, reverse=TRUE)
+    rpal <- colorNumeric(palette = "RdYlBu", domain = rich_data_all$Species_Richness, reverse = TRUE)
     popper <- paste0("<strong>Species Richness: </strong>", rich_data()$Species_Richness,
                      "<br><strong>Seine ID: </strong>", rich_data()$Seine_ID)
     if (nrow(rich_data()) > 0 ) {
     leafletProxy("map") %>%
       clearMarkers() %>%
-      addCircleMarkers(data=rich_data(), lng=~Seine_Longitude, lat=~Seine_Latitude, 
-                      radius=~Species_Richness/1.5, weight=2, opacity=0.75, fillOpacity=0.75, 
-                      color=~wbpal(Water_Name), fillColor=~rpal(Species_Richness), popup=popper) 
+      addCircleMarkers(data = rich_data(), lng = ~Seine_Longitude, lat = ~Seine_Latitude, 
+                      radius = ~Species_Richness/1.5, weight = 2, opacity = 0.75, fillOpacity = 0.75, 
+                      color = ~wbpal(Water_Name), fillColor = ~rpal(Species_Richness), popup = popper) 
     } else {
       leafletProxy("map") %>%
         clearMarkers()
