@@ -28,7 +28,7 @@ library(thematic)
 
 
 # ------------------------- PREPROCESSING --------------------------------------
-load("data/preprocessed.RData")
+load("data/rm-preprocessed.RData")
 
 ##############################  UI  ############################################
 
