@@ -3,3 +3,6 @@ Scripts, apps, and related resources to support projects conducted by the [Fishe
 
 ## Draft Restoration Monitoring App
 <img width="1918" height="993" alt="restoration-monitoring-draft" src="https://github.com/user-attachments/assets/07804162-8ff5-4bb7-af0d-8813bb22d176" />
+
+## Draft Stock Enhancement App
+<img width="1913" height="992" alt="image" src="https://github.com/user-attachments/assets/5349406e-497b-4e11-b39d-a01b5d863031" />
