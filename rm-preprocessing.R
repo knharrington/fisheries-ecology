@@ -86,7 +86,10 @@ ORMR.raw$Date_Time <- ymd_hms(paste(ORMR.raw$Date, ORMR.raw$Time))
 
 # clean up dates
 ORMR.raw <- ORMR.raw %>%
-  filter(!is.na(Date), Date > as.POSIXct("2022-01-01", format = "%Y-%m-%d"), Date < as.POSIXct("2026-01-01", format = "%Y-%m-%d"), Tag_Type %in% c("A", "R", "W"))
+  filter(!is.na(Date), 
+         Date > as.POSIXct("2022-01-01", format = "%Y-%m-%d"), 
+         Date < as.POSIXct("2026-01-01", format = "%Y-%m-%d"), 
+         Tag_Type %in% c("A", "R", "W"))
 
 # check dates
 hist(ORMR.raw$Date, breaks = "months", freq = TRUE)
@@ -178,7 +181,7 @@ died <- keepers %>%
     Last_Date_Time = first(Last_Date_Time)
   )
 
-# filter to 3 species, keep fish present at least 14 days post-release and have at least 10 detections, assign water bodies to detections
+# filter for species, keep fish present at least 14 days post-release and have at least 10 detections, assign water bodies to detections
 pit_sample <- pittag_data_comp %>%
   filter(Common_Name %in% c("Common snook", "Striped mullet")) %>%
   group_by(Tag_ID) %>%
@@ -250,7 +253,10 @@ pit_sample_day <- pit_sample %>%
   )
 
 # abacus plot palette
-dark2_pal <- c("Dogleg Lake" = "#399E76", "Drummer Bayou" = "#D15E00", "Fish Tale Pond" = "#7670B5", "Oyster Bay" = "#DE268B", "Pelican Bayou" = "#6DA602", "Out of Preserve" = "#E1AA00", "Unknown" = "#666666")
+dark2_pal <- c("Dogleg Lake" = "#399E76", "Drummer Bayou" = "#D15E00", 
+               "Fish Tale Pond" = "#7670B5", "Oyster Bay" = "#DE268B", 
+               "Pelican Bayou" = "#6DA602", "Out of Preserve" = "#E1AA00", 
+               "Unknown" = "#666666")
 
 # ggplot(ab_samp) +
 #   #geom_point(aes(x=Date_Time, y=Tag_ID, color=Water_Body)) +
@@ -305,7 +311,7 @@ plot_ly() %>%
   add_markers(
     data = ab_samp, x = ~Date, y = ~Tag_ID,
     color = ~Water_Body, colors = dark2_pal, marker = list(size = 4),
-    text = ~ paste(
+    text = ~paste(
       "<b>Location:</b>", Water_Body,
       "<br><b>Detection Date:</b>", paste0(format(Date, format = "%b %d, %Y")),
       "<br><b>Tag ID:</b>", Tag_ID
@@ -560,4 +566,4 @@ composition_plot <- plot_ly(
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, rich_time_plot, composition_plot, file = "data/preprocessed.RData")
+save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, rich_time_plot, composition_plot, file = "data/rm-preprocessed.RData")
