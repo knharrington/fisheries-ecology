@@ -49,14 +49,17 @@ release_data <- release_raw %>%
     Latitude = as.numeric(Latitude),
     Longitude = as.numeric(Longitude),
     Longitude = ifelse(Longitude > 0, -Longitude, Longitude),
-    Release_Date = as.Date(Date_Time_Rel)
+    Release_Date = as.Date(Date_Time_Rel),
+    Release_Event = substr(Release_ID, 1, 9)
   )
 
 rel_points <- release_data %>%
   group_by(Release_ID, Latitude, Longitude) %>%
-  reframe(Num_Fish = n_distinct(Tag_ID),
-          Rel_Sites = paste(unique(Release_Site), collapse = ", "),
-          Rel_Dates = paste(unique(Date_Time_Rel), collapse = ", ")) %>%
+  reframe(
+    Release_Event = first(Release_Event),
+    Num_Fish = n_distinct(Tag_ID),
+    Rel_Sites = paste(unique(Release_Site), collapse = ", "),
+    Rel_Dates = paste(unique(Date_Time_Rel), collapse = ", ")) %>%
   arrange(Latitude, Longitude)
 
 pal <- colorNumeric(palette = "Blues", domain = rel_points$Num_Fish, reverse = FALSE)
@@ -147,8 +150,10 @@ hist(pit_sample$Num_Detections)
 
 # group by date to reduce points on abacus plot
 pit_sample_day <- pit_sample %>%
+  mutate(Release_Event = substr(Release_ID, 1, 9)) %>%
   group_by(Tag_ID, Date) %>%
   summarise(
+    Release_Event = first(Release_Event),
     Release_ID = first(Release_ID),
     Release_Date = first(Release_Date),
     Common_Name = first(Common_Name),
@@ -281,16 +286,18 @@ recap_sample_day <- recap_sample %>%
     Antenna = first(Antenna)
   )
 
-release_survival <- recap_sample_day %>% left_join(release_events, by = join_by(Release_ID))
+release_survival <- recap_sample_day %>% left_join(release_events, by = join_by(Release_ID)) %>%
+  mutate(Release_Event = substr(Release_ID, 1, 9))
 
 survival_data <- release_survival %>%
-  filter(Release_ID %in% c("SRC2016-3.1", "SRC2016-3.2", "SRC2016-3.3", "SRC2016-3.4")) %>%
+  #filter(Release_ID %in% c("SRC2016-3.1", "SRC2016-3.2", "SRC2016-3.3", "SRC2016-3.4")) %>%
   group_by(Release_ID) %>%
   mutate(
     Days_After_Release = as.integer(as.Date(Date) - as.Date(Release_Date))
   ) %>%
   group_by(Release_ID, Days_After_Release) %>%
   summarise(
+    Release_Event = first(Release_Event),
     Fish_Detected = n_distinct(Tag_ID),
     Fish_Released = first(Fish_Released),
     Prop_Detected = Fish_Detected/Fish_Released,
@@ -298,6 +305,12 @@ survival_data <- release_survival %>%
   ) %>%
   arrange(Release_ID, Days_After_Release) %>%
   filter(Days_After_Release <= 60)
+
+# release_event_names <- unique(survival_data$Release_Event)
+# choice_list <- lapply(
+#   split(survival_data$Release_ID, survival_data$Release_Event),
+#   unique
+# )
 
 # interactive plot
 fish_survival_plot <- plot_ly(
