@@ -65,13 +65,13 @@ sidebar <- sidebar(
   width=350,
   helpText("Use the following selections to update the data displayed in the figures."),
   selectInput("select_event", label="Select Release Event", 
-              choices = sort(unique(release_survival$Release_ID)), selected = sort(unique(release_survival$Release_ID))[[1]]), 
-  checkboxGroupInput("region", "Region", 
-                     choiceNames = list(HTML("<b>Upper</b>"),
-                                        HTML("<b>Lower</b>"), 
-                                        HTML("<b>Other</b>")), 
-                     selected = list("Upper", "Lower", "Misc"),
-                     choiceValues = list("Upper", "Lower", "Misc")),
+              choices = sort(unique(release_survival$Release_Event)), selected = sort(unique(release_survival$Release_Event))[[1]]), 
+  # checkboxGroupInput("region", "Region", 
+  #                    choiceNames = list(HTML("<b>Upper</b>"),
+  #                                       HTML("<b>Lower</b>"), 
+  #                                       HTML("<b>Other</b>")), 
+  #                    selected = list("Upper", "Lower", "Misc"),
+  #                    choiceValues = list("Upper", "Lower", "Misc")),
   checkboxGroupInput("size", "Fish Age Class", 
                      choiceNames = list(HTML("<b>Adult</b> > 340 mm"),
                                         HTML("<b>Subadult</b> 180 mm - 340 mm"), 
@@ -181,11 +181,11 @@ server <- function(input, output, session) {
   
   # pit detection tag order for plotting (random sample)
   tags_order <- reactive({
-    #req(length(input$size) > 0)
+    req(length(input$size) > 0)
     set.seed(123)
     pit_sample_day %>%
-      # filter(Common_Name %in% input$select_species, 
-      #        Fish_Class %in% input$size) %>%
+      filter(Release_Event %in% input$select_event,
+             Fish_Class %in% input$size) %>%
       group_by(Tag_ID) %>%
       summarise(First_Det = min(Date)) %>%
       slice_sample(n = 40) %>%
@@ -195,11 +195,11 @@ server <- function(input, output, session) {
   
   # pit detection dataset
   detections <- reactive({
-    req(tags_order())#, length(input$size) > 0)
+    req(tags_order(), length(input$size) > 0)
     pit_sample_day %>%
       filter(
-        # Common_Name %in% input$select_species,
-        # Fish_Class %in% input$size,
+        Release_Event %in% input$select_event,
+        Fish_Class %in% input$size,
         Tag_ID %in% tags_order()
         ) %>%
       mutate(Tag_ID = factor(Tag_ID, levels = tags_order()))
@@ -226,8 +226,10 @@ server <- function(input, output, session) {
   
   # proportion of fish detected post-release
   survival_data <- reactive({
+    req(length(input$size) > 0)
     release_survival %>%
-      filter(Release_ID %in% input$select_event) %>%
+      filter(Release_Event %in% input$select_event,
+             Fish_Class %in% input$size) %>%
       group_by(Release_ID) %>%
       mutate(
         Days_After_Release = as.integer(as.Date(Date) - as.Date(Release_Date))
@@ -245,8 +247,10 @@ server <- function(input, output, session) {
   
   # bar graph: total fish seen at each antenna bar graph
   bar_order <- reactive({
+    req(length(input$size) > 0)
     pit_sample_day %>%
-      filter(Release_ID %in% input$select_event) %>%
+      filter(Release_Event %in% input$select_event,
+             Fish_Class %in% input$size) %>%
       group_by(Antenna) %>%
       summarise(Num_Fish = n_distinct(Tag_ID), .groups = "drop") %>%
       arrange(desc(Num_Fish)) %>%
@@ -254,8 +258,10 @@ server <- function(input, output, session) {
   })
   
   fish_bar_data <- reactive({
+    req(length(input$size) > 0)
     pit_sample_day %>%
-      filter(Release_ID %in% input$select_event) %>%
+      filter(Release_Event %in% input$select_event,
+             Fish_Class %in% input$size) %>%
       group_by(Antenna) %>%
       summarise(Num_Fish = n_distinct(Tag_ID), .groups = "drop") %>%
       mutate(Antenna = factor(Antenna, levels = bar_order()))
@@ -266,7 +272,8 @@ server <- function(input, output, session) {
   release_text <- reactive({
     release_survival %>%
       filter(
-        Release_ID %in% input$select_event
+        Release_Event %in% input$select_event,
+        Fish_Class %in% input$size
       )
   })
   
@@ -311,9 +318,10 @@ server <- function(input, output, session) {
   
   # proportion of fish alive post-release over time
   output$fish_survival <- renderPlotly({
+    req(survival_data(), nrow(survival_data() > 0))
     plot_ly(
       mode = "lines+markers", type = "scatter",
-      data = survival_data(), x = ~Days_After_Release, y = ~Prop_Detected, color=~Release_ID,
+      data = survival_data(), x = ~Days_After_Release, y = ~Prop_Detected, color=~Release_ID, colors="Set1",
       marker = list(size = 6), line = list(width = 2),
       text = ~paste(
         "<b>Release Event:</b>", Release_ID,
@@ -356,10 +364,10 @@ server <- function(input, output, session) {
   })
   
   # ---------------------------- MAPS ------------------------------------------
-  # species richness map
+  # map
   release_points <- reactive({
     rel_points %>%
-      filter(Release_ID %in% input$select_event)
+      filter(Release_Event %in% input$select_event)
   })
   
   output$map <- renderLeaflet({
@@ -384,9 +392,11 @@ server <- function(input, output, session) {
   })
   
   observe({
+    rel_pal <- colorNumeric("Reds", domain = rel_points$Num_Fish)
     leafletProxy("map") %>%
       clearGroup("release_points") %>%
-      addMarkers(data = release_points(), lat=~Latitude, lng=~Longitude, group="release_points")
+      addCircleMarkers(data = release_points(), lat=~Latitude, lng=~Longitude, group="release_points",
+                 fillColor = ~rel_pal(Num_Fish))
   })
   
 } # end server
