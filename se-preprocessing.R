@@ -54,24 +54,28 @@ release_data <- release_raw %>%
   )
 
 rel_points <- release_data %>%
-  group_by(Release_ID, Latitude, Longitude) %>%
+  group_by(Release_Event, Release_Site) %>%
   reframe(
-    Release_Event = first(Release_Event),
+    Longitude = mean(Longitude),
+    Latitude = mean(Latitude),
     Num_Fish = n_distinct(Tag_ID),
-    Rel_Sites = paste(unique(Release_Site), collapse = ", "),
+    Rel_IDs = paste(unique(Release_ID), collapse = ", "),
     Rel_Dates = paste(unique(Date_Time_Rel), collapse = ", ")) %>%
   arrange(Latitude, Longitude)
 
+rel_points %>% group_by(Release_Event) %>% summarise(Num_Fish=sum(Num_Fish))
+rel_points %>% filter(Release_Event == "SRC2018-1")
+
 pal <- colorNumeric(palette = "Blues", domain = rel_points$Num_Fish, reverse = FALSE)
 poppy <- paste0("<strong>Fish Released: </strong>", rel_points$Num_Fish,
-                "<br><strong>Release Site: </strong>", rel_points$Rel_Sites,
+                "<br><strong>Release IDs: </strong>", rel_points$Rel_IDs,
                 "<br><strong>Release Dates: </strong>", rel_points$Rel_Dates)
 leaflet() %>%
   #addTiles() %>%
   addProviderTiles("Esri.NatGeoWorldMap") %>%
   addCircleMarkers(data=rel_points, lat=~Latitude, lng=~Longitude, 
                    radius=~sqrt(Num_Fish)/2, popup=poppy,
-                   weight=2, fillOpacity=.7, fillColor=~pal(Num_Fish),
+                   weight=2, fillOpacity=.75, fillColor=~pal(Num_Fish),
                    color="black") %>%
   addLegend(pal = pal, data = rel_points, values = ~Num_Fish, opacity = 1, title = HTML("Fish<br>Released"))
 
@@ -118,7 +122,13 @@ recap_data <- recap_raw %>%
     Date_Time_Start = as.POSIXct(Date_Time_Start, format = "%Y-%m-%d %H:%M:%S"),
     Date_Time_End = as.POSIXct(Date_Time_End, format = "%Y-%m-%d %H:%M:%S"),
     Date_Time_Rel = as.POSIXct(Date_Time_Rel, format = "%Y-%m-%d %H:%M:%S"),
-    Release_Date = as.Date(Date_Time_Rel)
+    Release_Date = as.Date(Date_Time_Rel),
+    Release_Event = substr(Release_ID, 1, 9),
+    Fish_Class = case_when(
+      Common_Name == "Common Snook" & FL_MM >= 340 ~ "Adult",
+      Common_Name == "Common Snook" & FL_MM >= 180 & FL_MM < 340 ~ "Subadult",
+      Common_Name == "Common Snook" & FL_MM < 180 ~ "Juvenile",
+      TRUE ~ "Unknown")
   )
 
 n_distinct(recap_data$Release_Date) # 40
@@ -131,12 +141,6 @@ pit_sample <- recap_data %>%
   group_by(Tag_ID) %>%
   arrange(Date_Time_Start) %>%
   mutate(
-    Fish_Class = case_when(
-      Common_Name == "Common Snook" & FL_MM >= 340 ~ "Adult",
-      Common_Name == "Common Snook" & FL_MM >= 180 & FL_MM < 340 ~ "Subadult",
-      Common_Name == "Common Snook" & FL_MM < 180 ~ "Juvenile",
-      TRUE ~ "Unknown"
-    ),
     Present = last(Date_Time_End) >= Date_Time_Rel + lubridate::days(30),
     Next_Ping = lead(Date_Time_Start),
     Next_Loop = lead(Loop),
@@ -144,13 +148,13 @@ pit_sample <- recap_data %>%
     Previous_Loop = lag(Loop),
     Num_Detections = n()
   ) %>%
-  filter(Present == TRUE, Num_Detections >= 10, Num_Detections < 50000)
+  filter(Num_Detections < 50000)
+  #filter(Present == TRUE, Num_Detections >= 10, Num_Detections < 50000)
 
 hist(pit_sample$Num_Detections)
 
 # group by date to reduce points on abacus plot
 pit_sample_day <- pit_sample %>%
-  mutate(Release_Event = substr(Release_ID, 1, 9)) %>%
   group_by(Tag_ID, Date) %>%
   summarise(
     Release_Event = first(Release_Event),
@@ -258,20 +262,19 @@ fish_bar_plot <- plot_ly(
 
 # post-release survival
 release_events <- release_data %>%
+  group_by(Release_Event) %>%
+  mutate(Fish_Released_Total = n_distinct(Tag_ID)) %>%
   group_by(Release_ID) %>%
-  summarise(Fish_Released = n_distinct(Tag_ID))
+  summarise(
+    Fish_Released = n_distinct(Tag_ID),
+    Fish_Released_Total= first(Fish_Released_Total)
+  )
 
 recap_sample <- recap_data %>%
   group_by(Tag_ID) %>%
   arrange(Date_Time_Start) %>%
   mutate(
-    Fish_Class = case_when(
-      Common_Name == "Common Snook" & FL_MM >= 340 ~ "Adult",
-      Common_Name == "Common Snook" & FL_MM >= 180 & FL_MM < 340 ~ "Subadult",
-      Common_Name == "Common Snook" & FL_MM < 180 ~ "Juvenile",
-      TRUE ~ "Unknown"
-    ),
-    Present = last(Date_Time_End) >= Date_Time_Rel + lubridate::days(30),
+    Present = last(Date_Time_End) >= Date_Time_Rel + lubridate::days(14),
     Num_Detections = n()
   ) %>%
   filter(Num_Detections < 50000)
@@ -279,19 +282,21 @@ recap_sample <- recap_data %>%
 recap_sample_day <- recap_sample %>%
   group_by(Tag_ID, Date) %>%
   summarise(
+    Release_Event = first(Release_Event),
     Release_ID = first(Release_ID),
     Release_Date = first(Release_Date),
     Common_Name = first(Common_Name),
     Fish_Class = first(Fish_Class),
-    Antenna = first(Antenna)
+    Antenna = first(Antenna),
+    Present = first(Present)
   )
 
-release_survival <- recap_sample_day %>% left_join(release_events, by = join_by(Release_ID)) %>%
-  mutate(Release_Event = substr(Release_ID, 1, 9))
+# join release data with recap data
+release_survival <- recap_sample_day %>% left_join(release_events, by = join_by(Release_ID))
 
 survival_data <- release_survival %>%
   #filter(Release_ID %in% c("SRC2016-3.1", "SRC2016-3.2", "SRC2016-3.3", "SRC2016-3.4")) %>%
-  group_by(Release_ID) %>%
+  group_by(Release_Event) %>%
   mutate(
     Days_After_Release = as.integer(as.Date(Date) - as.Date(Release_Date))
   ) %>%
@@ -398,8 +403,67 @@ set3_hex = c("#feffaf",
              "#bebadb",
              "#f37f68",
              "#cfebc4")
+set3_pal = c("Brown" = "#FAC98D",
+             "Byron" = "#C0F967",
+             "Chapman" = "#4FAADD",
+             "Duncan" = "#EE951E",
+             "Oskamp" = "#F891EA",
+             "Riverview" = "#476878",
+             "SedimentTrapB" = "#CA52BA",
+             "Sperandeo" = "#2166A2",
+             "Tanglewood" = "#57386A",
+             "Tucci1" = "#F78775",
+             "Tucci2" = "#77AE11")
 
 ant_pal <- colorFactor(palette = set3_hex, domain = set3_val)
+
+getColor <- function(df) {
+  unname(sapply(df$Antenna, function(Antenna) {
+    if (Antenna == "Brown") {
+      "beige" # "#feffaf"
+    } else if (Antenna == "Byron") {
+      "lightgreen" # "#b6de61"
+    } else if (Antenna == "Chapman") {
+      "blue" # "#86b1d5"
+    } else if (Antenna == "Duncan") {
+      "orange" # "#f7b35b"
+    } else if (Antenna == "Oskamp") {
+      "pink" # "#f8cde5"
+    } else if (Antenna == "Riverview") {
+      "cadetblue" # "#95d3c7"
+    } else if (Antenna == "SedimentTrapB") {
+      "purple" # "#b880bf"
+    } else if (Antenna == "Sperandeo") {
+      "darkblue" # "#d9d9d9"
+    } else if (Antenna == "Tanglewood") {
+      "darkpurple" # "#bebadb"
+    } else if (Antenna == "Tucci1") {
+      "lightred" # "#f37f68"
+    } else if (Antenna == "Tucci2") {
+      "green" # "#cfebc4"
+    } else {
+      "grey"
+    }
+  }))
+}
+
+icons <- awesomeIcons(
+  icon = "circle",
+  library = "fa",
+  iconColor = "#FFFFFF",
+  markerColor = getColor(antenna_loc)
+  
+)
+
+# test
+leaflet(antenna_loc) %>%
+  addTiles() %>%
+  addAwesomeMarkers(~Longitude, ~Latitude, icon=icons)
+
+# possible awesome icons colors
+c("red", "darkred", "lightred", "orange", "beige", "green", "darkgreen", "lightgreen", 
+"blue", "darkblue", "lightblue", "purple", "darkpurple", "pink", "cadetblue", 
+"white", "gray", "lightgray", "black")
 
 # pal <- colorFactor(palette="Paired", domain=antenna_loc$Antenna)
 # pop <- paste0("<strong>Antenna: </strong>", antenna_loc$Antenna,
@@ -414,4 +478,4 @@ ant_pal <- colorFactor(palette = set3_hex, domain = set3_val)
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(release_survival, rel_points, pit_sample_day, antenna_loc, ant_pal, set3_pal, file = "data/se-preprocessed.RData")
+save(release_survival, rel_points, antenna_loc, getColor, icons, set3_pal, set3_val, file = "data/se-preprocessed.RData")
