@@ -48,7 +48,7 @@ card2 <- card(
   card_body(plotlyOutput("fish_bar"))
 )
 # abacus plot
-card3 <- card(
+card4 <- card(
   full_screen = TRUE,
   card_header("Fish Detections Over Time",
               tooltip(
@@ -58,7 +58,7 @@ card3 <- card(
   card_body(plotlyOutput("abacus_plot"))
 )
 # post-release survival
-card4 <- card(
+card3 <- card(
   full_screen = TRUE,
   card_header("Proportion of Fish Detected After Release"),
   card_body(plotlyOutput("fish_survival"))
@@ -394,8 +394,8 @@ server <- function(input, output, session) {
     leafletProxy("map") %>%
       clearGroup("release_points") %>%
       addCircleMarkers(data = release_points(), lat=~Latitude, lng=~Longitude, group="release_points",
-                 fillColor = ~rel_pal(Num_Fish), fillOpacity = 1, color = "#4D4D4D", opacity = 1, weight = 1, 
-                 radius = 10, popup = pop_fish)
+                 fillColor = ~rel_pal(Num_Fish), fillOpacity = 0.75, color = "#4D4D4D", opacity = 1, weight = 1, 
+                 radius = 12, popup = pop_fish)
   })
   
 } # end server
