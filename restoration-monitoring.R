@@ -123,7 +123,7 @@ ui <- tagList(
       actionLink("open_about", label = HTML('<i class="fas fa-info-circle"></i> About the Data'), style = "color: white; text-decoration: none;"),
       tags$a(
         HTML('<i class="fab fa-github"></i> GitHub'),
-        href = "https://github.com/knharrington",
+        href = "https://github.com/knharrington/fisheries-ecology",
         target = "_blank",
         style = "color: white; text-decoration: none;"
       )
