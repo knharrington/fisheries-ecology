@@ -53,7 +53,16 @@ release_data <- release_raw %>%
     Release_Event = substr(Release_ID, 1, 9)
   )
 
+options(pillar.sigfig = 7)
+
 rel_points <- release_data %>%
+  mutate(
+    Release_Site = case_when(
+      Release_Site %in% c("PC Lower Mid", "PC Lower Shore") ~ "PC Lower",
+      Release_Site %in% c("PC Upper Mid", "PC Upper Shore") ~ "PC Upper",
+      TRUE ~ Release_Site
+    )
+  ) %>%
   group_by(Release_Event, Release_Site) %>%
   reframe(
     Longitude = mean(Longitude),
@@ -64,20 +73,20 @@ rel_points <- release_data %>%
   arrange(Latitude, Longitude)
 
 rel_points %>% group_by(Release_Event) %>% summarise(Num_Fish=sum(Num_Fish))
-rel_points %>% filter(Release_Event == "SRC2018-1")
+rel_points2 <- rel_points %>% filter(Release_Event == "SRC2019-2")
 
-pal <- colorNumeric(palette = "Blues", domain = rel_points$Num_Fish, reverse = FALSE)
-poppy <- paste0("<strong>Fish Released: </strong>", rel_points$Num_Fish,
-                "<br><strong>Release IDs: </strong>", rel_points$Rel_IDs,
-                "<br><strong>Release Dates: </strong>", rel_points$Rel_Dates)
+pal <- colorNumeric(palette = "Blues", domain = rel_points2$Num_Fish, reverse = FALSE)
+poppy <- paste0("<strong>Fish Released: </strong>", rel_points2$Num_Fish,
+                "<br><strong>Release IDs: </strong>", rel_points2$Rel_IDs,
+                "<br><strong>Release Dates: </strong>", rel_points2$Rel_Dates)
 leaflet() %>%
   #addTiles() %>%
   addProviderTiles("Esri.NatGeoWorldMap") %>%
-  addCircleMarkers(data=rel_points, lat=~Latitude, lng=~Longitude, 
+  addCircleMarkers(data=rel_points2, lat=~Latitude, lng=~Longitude, 
                    radius=~sqrt(Num_Fish)/2, popup=poppy,
                    weight=2, fillOpacity=.75, fillColor=~pal(Num_Fish),
                    color="black") %>%
-  addLegend(pal = pal, data = rel_points, values = ~Num_Fish, opacity = 1, title = HTML("Fish<br>Released"))
+  addLegend(pal = pal, data = rel_points2, values = ~Num_Fish, opacity = 1, title = HTML("Fish<br>Released"))
 
 n_distinct(release_data$Release_Date) # 40
 
@@ -170,17 +179,23 @@ pit_sample %>% group_by(Region, Antenna) %>% summarise(Fish_Detected = n_distinc
 # pit detection tag order for plotting (random sample)
 tags_order <- {
   set.seed(123)
-  pit_sample_day %>%
+  release_survival %>%
+    filter(
+      #Release_Event %in% input$select_event,
+      Present == TRUE
+    ) %>%
     group_by(Tag_ID) %>%
-    summarise(First_Det = min(Date)) %>%
+    summarise(Release_Date = first(Release_Date), First_Det = min(Date)) %>%
     slice_sample(n = 40) %>%
-    arrange(desc(First_Det)) %>%
+    arrange(desc(Release_Date), desc(First_Det)) %>%
     pull(Tag_ID)
 }
 
 # pit detection dataset
-detections <- pit_sample_day %>%
+detections <- release_survival %>%
   filter(
+    #Release_Event %in% input$select_event,
+    Present == TRUE,
     Tag_ID %in% tags_order
   ) %>%
   mutate(Tag_ID = factor(Tag_ID, levels = tags_order))
@@ -194,17 +209,25 @@ antenna_symbols <- setNames(symbol_palette[1:11], antenna_names)
 plot_ly() %>%
   add_markers(
     data = detections, x = ~Date, y = ~Tag_ID,
-    color = ~Antenna, symbol = ~Antenna, symbols = antenna_symbols, marker = list(size = 10),  
+    color = ~Antenna, marker = list(size = 5),  
     text = ~paste(
       "<b>Antenna:</b>", Antenna,
       "<br><b>Detection Date:</b>", paste0(format(Date, format="%b %d, %Y")),
       "<br><b>Tag ID:</b>", Tag_ID),
-    hoverinfo = "text", showlegend = TRUE
+    hoverinfo = "text", showlegend = TRUE, legendgroup = 'antenna'
+  ) %>%
+  add_markers(
+    data = detections, x = ~Release_Date, y = ~Tag_ID,
+    marker = list(size = 6, symbol="star", color = "grey", opacity=0.75),  
+    text = ~paste(
+      "<b>Release Date:</b>", paste0(format(Release_Date, format="%b %d, %Y")),
+      "<br><b>Tag ID:</b>", Tag_ID),
+    hoverinfo = "text", showlegend = TRUE, legendgroup = 'release', name = "Release Date"
   ) %>%
   layout(
-    xaxis = list(title = "Detection Date", gridcolor = "#cccccc"),
+    xaxis = list(title = "Date", gridcolor = "#cccccc"),
     yaxis = list(title = "Tag ID", gridcolor = "#cccccc"),
-    legend = list(title = list(text = "Location")),
+    legend = list(title = list(text = "Location"), tracegroupgap=50),
     hovermode = "closest",
     paper_bgcolor = "rgba(0,0,0,0)",
     plot_bgcolor = "rgba(0,0,0,0)"
