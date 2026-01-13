@@ -6,7 +6,7 @@
   # library(ggsvg)
   # library(ggimage)
   # library(glue)
-  library(shiny)
+  # library(shiny)
   library(bslib)
   library(showtext)
   library(thematic)
@@ -576,4 +576,6 @@ composition_plot <- plot_ly(
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, rich_time_plot, composition_data, composition_plot, file = "data/rm-preprocessed.RData")
+save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, 
+     rich_time_plot, composition_data, composition_plot, 
+     file = "data/rm-preprocessed.RData")
