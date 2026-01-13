@@ -540,7 +540,17 @@ composition_data <- seine_tags %>%
   mutate(Common_Name = fct_lump_n(Common_Name, n = 7, w = Frequency, other_level = "Other")) %>%
   mutate(Common_Name = fct_relevel(Common_Name, "Other")) %>%
   group_by(Month_Year, Common_Name) %>%
-  summarise(Frequency = sum(Frequency), .groups = "drop")
+  summarise(Frequency = sum(Frequency), .groups = "drop") %>%
+  mutate(
+    Year = year(Month_Year),
+    Month = month(Month_Year),
+    Season = case_when(
+      Month %in% c(1:3) ~ "Winter",
+      Month %in% c(4:6) ~ "Spring",
+      Month %in% c(7:9) ~ "Summer",
+      Month %in% c(10:12) ~ "Fall"
+    )
+  )
 # interactive plot
 composition_plot <- plot_ly(
   data = composition_data, x = ~Month_Year, y = ~Frequency, color = ~Common_Name,
@@ -566,4 +576,4 @@ composition_plot <- plot_ly(
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, rich_time_plot, composition_plot, file = "data/rm-preprocessed.RData")
+save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, rich_time_plot, composition_data, composition_plot, file = "data/rm-preprocessed.RData")
