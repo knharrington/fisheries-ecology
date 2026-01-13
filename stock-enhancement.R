@@ -395,9 +395,6 @@ server <- function(input, output, session) {
         options = layersControlOptions(collapsed = FALSE)
       ) %>%
       addAwesomeMarkers(data = antenna_loc, lng = ~Longitude, lat = ~Latitude, icon = icons, popup = ant_pop, group="Antennas") %>%
-      # addCircleMarkers(data = antenna_loc, lng = ~Longitude, lat = ~Latitude,
-      #                  fillColor = ~ant_pal(Antenna), fillOpacity = 1, color="#4D4D4D", weight = 1, opacity = 1) %>%
-      #addLegend(pal = ant_pal, values = set3_val, opacity = 1, title = "Antenna") %>%
       addLegend(pal = rel_pal, data = rel_points, values = ~Num_Fish, opacity = 1, title = HTML("Tagged Fish<br>Released"))
   })
   
