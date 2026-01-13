@@ -361,7 +361,7 @@ fish_survival_plot <- plot_ly(
   )
 
 # -------------------------- WATER DATA ----------------------------------------
-water_raw <- fread("data/Phillippi water height.csv")
+# water_raw <- fread("data/Phillippi water height.csv")
 
 # -------------------------- ANTENNA DATA --------------------------------------
 antenna_loc <- fread("data/PC-antenna-locations.csv")
