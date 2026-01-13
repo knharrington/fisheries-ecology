@@ -499,6 +499,46 @@ c("red", "darkred", "lightred", "orange", "beige", "green", "darkgreen", "lightg
 #                    color=~pal(Antenna)) %>%
 #   addLegend(pal=pal, values=~Antenna, opacity=1)
 
+# Releases by year
+rels_yr_raw <- fread("data/releases_by_year_creek.csv")
+
+se_creek_loc <- fread("data/se_creek_locations.csv")
+creek_loc <- se_creek_loc %>%
+  rename(Creek_System = `Release Site`)
+
+rels_yr <- rels_yr_raw %>%
+  filter(Species == "Common Snook") %>%
+  select(-Total) %>%
+  pivot_longer(
+    cols = `Tidy Island`:`Tippecanoe`,
+    names_to = "Creek_System",
+    values_to = "Num_Released"
+  ) %>%
+  filter(!is.na(Num_Released)) %>%
+  left_join(creek_loc, by = join_by(Creek_System))
+
+release_plot <- plot_ly(
+  data = rels_yr, x = ~Year, y = ~Num_Released, color = ~Creek_System,
+  type = "bar", colors="Paired",
+  text = ~ paste(
+    "<b>Year:</b>", Year,
+    "<br><b>Release Site:</b>", Creek_System,
+    "<br><b>Number of Fish Released:</b>", format(Num_Released, big.mark=",")
+  ),
+  marker = list(line = list(color = "grey30", width=0.5)),
+  hoverinfo = "text",
+  textposition = "none"
+) %>%
+  layout(
+    barmode = "stack",
+    xaxis = list(title = "", gridcolor = "#cccccc"),
+    yaxis = list(title = "Number of Fish Released", gridcolor = "#cccccc"),
+    legend = list(title = list(text = "Release Site")),
+    hovermode = "closest",
+    paper_bgcolor = "rgba(0,0,0,0)",
+    plot_bgcolor = "rgba(0,0,0,0)"
+  )
+
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(release_survival, rel_points, antenna_loc, getColor, icons, set3_pal, set3_val, file = "data/se-preprocessed.RData")
+save(release_survival, rel_points, antenna_loc, getColor, icons, set3_pal, set3_val, release_plot, rels_yr, file = "data/se-preprocessed.RData")
