@@ -6,7 +6,7 @@
   # library(ggsvg)
   # library(ggimage)
   # library(glue)
-  library(shiny)
+  # library(shiny)
   library(bslib)
   library(showtext)
   library(thematic)
@@ -366,43 +366,43 @@ water_raw <- fread("data/Phillippi water height.csv")
 # -------------------------- ANTENNA DATA --------------------------------------
 antenna_loc <- fread("data/PC-antenna-locations.csv")
 
-shape_icons <- iconList(
-  Brown = makeIcon(iconUrl = "www/square.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Byron = makeIcon(iconUrl = "www/bowtie.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Chapman = makeIcon(iconUrl = "www/triangle-up.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Duncan = makeIcon(iconUrl = "www/x.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Oskamp = makeIcon(iconUrl = "www/triangle-down.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Riverview = makeIcon(iconUrl = "www/circle.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  SedimentTrapB = makeIcon(iconUrl = "www/star.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Sperandeo = makeIcon(iconUrl = "www/pentagon.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Tanglewood = makeIcon(iconUrl = "www/hourglass.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Tucci1 = makeIcon(iconUrl = "www/cross.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
-  Tucci2 = makeIcon(iconUrl = "www/diamond.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10)
-)
+# shape_icons <- iconList(
+#   Brown = makeIcon(iconUrl = "www/square.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Byron = makeIcon(iconUrl = "www/bowtie.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Chapman = makeIcon(iconUrl = "www/triangle-up.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Duncan = makeIcon(iconUrl = "www/x.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Oskamp = makeIcon(iconUrl = "www/triangle-down.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Riverview = makeIcon(iconUrl = "www/circle.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   SedimentTrapB = makeIcon(iconUrl = "www/star.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Sperandeo = makeIcon(iconUrl = "www/pentagon.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Tanglewood = makeIcon(iconUrl = "www/hourglass.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Tucci1 = makeIcon(iconUrl = "www/cross.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10),
+#   Tucci2 = makeIcon(iconUrl = "www/diamond.svg", iconWidth = 20, iconHeight = 20, iconAnchorX = 10, iconAnchorY = 10)
+# )
+# 
+# icon_paths <- sapply(shape_icons, function(x) x$iconUrl)
+# icon_paths <- gsub("^www/", "", icon_paths)   # remove 'www/' for legend
 
-icon_paths <- sapply(shape_icons, function(x) x$iconUrl)
-icon_paths <- gsub("^www/", "", icon_paths)   # remove 'www/' for legend
-
-leaflet(data = antenna_loc) %>%
-  addTiles() %>%
-  addMarkers(
-    lng = ~Longitude,
-    lat = ~Latitude,
-    icon = ~shape_icons[Antenna]
-  ) %>%
-  addLegend(
-    position = "bottomright",
-    title = "Antenna",
-    colors = rep("transparent", length(shape_icons)),
-    labels = mapply(
-      function(name, path) {
-        sprintf("<img src='%s' height='20' > %s", path, name)
-      },
-      names(shape_icons),
-      icon_paths
-    ),
-    opacity = 1
-  )
+# leaflet(data = antenna_loc) %>%
+#   addTiles() %>%
+#   addMarkers(
+#     lng = ~Longitude,
+#     lat = ~Latitude,
+#     icon = ~shape_icons[Antenna]
+#   ) %>%
+#   addLegend(
+#     position = "bottomright",
+#     title = "Antenna",
+#     colors = rep("transparent", length(shape_icons)),
+#     labels = mapply(
+#       function(name, path) {
+#         sprintf("<img src='%s' height='20' > %s", path, name)
+#       },
+#       names(shape_icons),
+#       icon_paths
+#     ),
+#     opacity = 1
+#   )
 
 set3_val = c("Brown",
              "Byron",
@@ -415,17 +415,17 @@ set3_val = c("Brown",
              "Tanglewood",
              "Tucci1",
              "Tucci2")
-set3_hex = c("#feffaf",
-             "#b6de61",
-             "#86b1d5",
-             "#f7b35b",
-             "#f8cde5",
-             "#95d3c7",
-             "#b880bf",
-             "#d9d9d9",
-             "#bebadb",
-             "#f37f68",
-             "#cfebc4")
+# set3_hex = c("#feffaf",
+#              "#b6de61",
+#              "#86b1d5",
+#              "#f7b35b",
+#              "#f8cde5",
+#              "#95d3c7",
+#              "#b880bf",
+#              "#d9d9d9",
+#              "#bebadb",
+#              "#f37f68",
+#              "#cfebc4")
 set3_pal = c("Brown" = "#FAC98D",
              "Byron" = "#C0F967",
              "Chapman" = "#4FAADD",
@@ -438,7 +438,7 @@ set3_pal = c("Brown" = "#FAC98D",
              "Tucci1" = "#F78775",
              "Tucci2" = "#77AE11")
 
-ant_pal <- colorFactor(palette = set3_hex, domain = set3_val)
+# ant_pal <- colorFactor(palette = set3_hex, domain = set3_val)
 
 getColor <- function(df) {
   unname(sapply(df$Antenna, function(Antenna) {
@@ -484,9 +484,9 @@ leaflet(antenna_loc) %>%
   addAwesomeMarkers(~Longitude, ~Latitude, icon=icons)
 
 # possible awesome icons colors
-c("red", "darkred", "lightred", "orange", "beige", "green", "darkgreen", "lightgreen", 
-"blue", "darkblue", "lightblue", "purple", "darkpurple", "pink", "cadetblue", 
-"white", "gray", "lightgray", "black")
+# c("red", "darkred", "lightred", "orange", "beige", "green", "darkgreen", "lightgreen", 
+# "blue", "darkblue", "lightblue", "purple", "darkpurple", "pink", "cadetblue", 
+# "white", "gray", "lightgray", "black")
 
 # pal <- colorFactor(palette="Paired", domain=antenna_loc$Antenna)
 # pop <- paste0("<strong>Antenna: </strong>", antenna_loc$Antenna,
@@ -541,4 +541,4 @@ release_plot <- plot_ly(
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(release_survival, rel_points, antenna_loc, getColor, icons, set3_pal, set3_val, release_plot, rels_yr, file = "data/se-preprocessed.RData")
+save(release_survival, rel_points, antenna_loc, icons, set3_pal, release_plot, rels_yr, file = "data/se-preprocessed.RData")
