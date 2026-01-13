@@ -100,7 +100,7 @@ max(ORMR.raw$Date)
 pit_data <- as.data.table(ORMR.raw)
 
 # save data to csv file
-write_csv(pit_data, "data/pit_data_2025-10-14.csv")
+write_csv(pit_data, paste0("data/pit_data_", Sys.Date(),".csv"))
 
 ########## PICK BACK UP HERE ##########
 pit_data <- fread("data/pit_data_2025-10-14.csv") # > 5 million detections
