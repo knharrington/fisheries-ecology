@@ -517,13 +517,28 @@ rels_yr <- rels_yr_raw %>%
   filter(!is.na(Num_Released)) %>%
   left_join(creek_loc, by = join_by(Creek_System))
 
+rels_yr <- rels_yr %>%
+  mutate(Creek_System = case_when(
+    Creek_System == "Ainger Creek" ~ "Arroyo Ainger",
+    Creek_System == "Alligator Creek" ~ "Arroyo del Caimán",
+    Creek_System == "Bowlees Creek" ~ "Arroyo Bowlees",
+    Creek_System == "Hudson Creek" ~ "Arroyo Hudson",
+    Creek_System == "North Creek" ~ "Arroyo del Norte",
+    Creek_System == "Phillippi Creek" ~ "Arroyo Phillippi",
+    Creek_System == "Shakett Creek" ~ "Arroyo Shakett",
+    Creek_System == "Tidy Island" ~ "Isla Tidy",
+    Creek_System == "Tippecanoe" ~ "Tippecanoe",
+    Creek_System == "Whitaker Bayou" ~ "Bahía Whitaker",
+    TRUE ~ Creek_System
+  ))
+
 release_plot <- plot_ly(
   data = rels_yr, x = ~Year, y = ~Num_Released, color = ~Creek_System,
   type = "bar", colors="Paired",
   text = ~ paste(
-    "<b>Year:</b>", Year,
-    "<br><b>Release Site:</b>", Creek_System,
-    "<br><b>Number of Fish Released:</b>", format(Num_Released, big.mark=",")
+    "<b>Año:</b>", Year,
+    "<br><b>Sitio de liberación:</b>", Creek_System,
+    "<br><b>Número de peces liberados:</b>", format(Num_Released, big.mark=",")
   ),
   marker = list(line = list(color = "grey30", width=0.5)),
   hoverinfo = "text",
@@ -532,8 +547,8 @@ release_plot <- plot_ly(
   layout(
     barmode = "stack",
     xaxis = list(title = "", gridcolor = "#cccccc"),
-    yaxis = list(title = "Number of Fish Released", gridcolor = "#cccccc"),
-    legend = list(title = list(text = "Release Site")),
+    yaxis = list(title = "Número de peces liberados", gridcolor = "#cccccc"),
+    legend = list(title = list(text = "Sitio de liberación")),
     hovermode = "closest",
     paper_bgcolor = "rgba(0,0,0,0)",
     plot_bgcolor = "rgba(0,0,0,0)"
@@ -541,4 +556,4 @@ release_plot <- plot_ly(
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(release_survival, rel_points, antenna_loc, icons, set3_pal, release_plot, rels_yr, file = "data/se-preprocessed.RData")
+save(release_survival, rel_points, antenna_loc, icons, set3_pal, release_plot, rels_yr, file = "data/se-preprocessed-es.RData")

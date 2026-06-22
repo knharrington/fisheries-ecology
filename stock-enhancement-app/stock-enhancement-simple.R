@@ -28,34 +28,41 @@
 
 
 # ------------------------- PREPROCESSING --------------------------------------
-load("data/se-preprocessed.RData")
+load("se-preprocessed.RData")
 
 ##############################  UI  ############################################
 
 # ---------------------------- CARDS -------------------------------------------
 # map
 card1 <- card(
-  full_screen = TRUE,
-  height = "800px",
+  #full_screen = TRUE,
+  class = "bg-secondary",
+  #height = "800px",
   card_header("Tagged Fish Released by Location"),
-  card_body(leafletOutput("map", height = "100%"),
-            style = "padding: 0; height: 100%;")
+  card_body(
+    leafletOutput("map", height = "100%"),
+    div(id = "translucent_panel",
+        sliderInput("years", label = "Year", min(rels_yr$Year), max(rels_yr$Year),
+          value = c(min(rels_yr$Year)), sep = "", round = TRUE, step = 1, animate=TRUE)),
+    div(id = "snook_photo", img(src="CommonSnook.jpg", width="340px")),
+    style = "padding: 0; height: 100%;"
+    )
 )
 # bar graph
 card2 <- card(
-  full_screen = TRUE,
+  class = "bg-secondary",
+  #full_screen = TRUE,
   card_header("Fish Released in Each Creek"),
   card_body(plotlyOutput("fish_bar"))
 )
 
-
 # --------------------------- SIDEBAR ------------------------------------------
-sidebar <- sidebar(
-  width=350, open="always",
-  helpText("Use the following selections to update the data displayed in the figures."),
-  sliderInput("years", label = "Time Range", min(rels_yr$Year), max(rels_yr$Year),
-              value = c(min(rels_yr$Year)), sep = "", round = TRUE, step = 1, animate=TRUE)
-) # end sidebar
+# sidebar <- sidebar(
+#   width=350, open="always",
+#   helpText("Use the following selections to update the data displayed in the figures."),
+#   sliderInput("years", label = "Time Range", min(rels_yr$Year), max(rels_yr$Year),
+#               value = c(min(rels_yr$Year)), sep = "", round = TRUE, step = 1, animate=TRUE)
+# ) # end sidebar
 
 # ----------------------------- MAIN -------------------------------------------
 # automatically adjust ggplot themes
@@ -64,35 +71,67 @@ thematic::thematic_shiny(font = "auto")
 # custom Mote theme
 theme <- bs_theme(
   version = 5,
-  bg = "#f4f4f4",
-  fg = "#000000",
-  primary = "#0054a6",
-  secondary = "#00aae7"
+  bg = "#02426A",
+  fg = "#ffffff",
+  primary = "#B5D675",
+  secondary = "#34758A"
 )
 
-ui <- tagList(
-  # Custom full-width header bar
-  tags$div(
-    style = "background-color: #0054a6;color: white; padding: 10px 20px;
-      display: flex; align-items: center; justify-content: space-between;",
-    
-    # Left side: logo and title
-    tags$div(
-      style = "display: flex; align-items: center;",
-      img(src = "MoteMarineLaboratory_StackedLogo_White.png", style = "height: 30px; margin-right: 15px;"),
-      tags$h4("Common Snook Stock Enhancement", style = "margin: 0;")
-    )
-  ),
-  
-  # Main page structure
-  page_sidebar(
+# ui <- tagList(
+#   # Custom full-width header bar
+#   tags$div(
+#     style = "background-color: #0054a6;color: white; padding: 10px 20px;
+#       display: flex; align-items: center; justify-content: space-between;",
+#     
+#     # Left side: logo and title
+#     tags$div(
+#       style = "display: flex; align-items: center;",
+#       img(src = "MoteMarineLaboratory_StackedLogo_White.png", style = "height: 30px; margin-right: 15px;"),
+#       tags$h4("Common Snook Stock Enhancement", style = "margin: 0;")
+#     )
+#   ),
+#   
+#   # Main page structure
+#   page_sidebar(
+#     theme = theme,
+#     sidebar = sidebar,
+#     layout_columns(col_widths = c(8, 4), 
+#                    card1,  
+#                    card2)
+#   )
+# )
+
+ui <- page_fillable(
+  tags$style(HTML("
+    #time_slider {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      z-index: 1000; /* Ensure input is above map */
+    }
+    #translucent_panel {
+      position: absolute;
+      bottom: 20px;
+      left: 30px;
+      background-color: rgba(2, 66, 106, 0.9); /* Translucent white */
+      padding: 20px;
+      border-radius: 5px;
+      z-index: 999; /* Ensure panel is below slider */
+    }
+    #snook_photo {
+    position: absolute;
+    bottom: 210px;
+    left: 30px;
+    z-index: 1001;
+    }
+  ")),
     theme = theme,
-    sidebar = sidebar,
+    #sidebar = sidebar,
     layout_columns(col_widths = c(8, 4), 
                    card1,  
                    card2)
   )
-)
+
 
 ##############################  SERVER  ########################################
 
@@ -123,13 +162,13 @@ server <- function(input, output, session) {
   # ---------------------------- MAPS ------------------------------------------
   # map
   creek_pal <- colorFactor("Paired", domain=sort(unique(rels_yr$Creek_System), decreasing=TRUE))
-  rel_pal <-colorNumeric("Blues", domain=rels_yr$Num_Released)
+  rel_pal <-colorNumeric(palette = blue_palette(7), domain=rels_yr$Num_Released)
   
   output$map <- renderLeaflet({
-    leaflet(options = leafletOptions(minZoom = 9, maxZoom=12)) %>%
+    leaflet(options = leafletOptions(attributionControl = FALSE, minZoom = 9, maxZoom=12)) %>%
       addProviderTiles("Esri.NatGeoWorldMap") %>%
       #addProviderTiles("Esri.WorldImagery") %>%
-      setView(lng = -82.35, lat = 27.02, zoom = 10) %>%
+      setView(lng = -82.45, lat = 27.02, zoom = 10) %>%
       addLegend(pal = creek_pal, data = rels_yr, values = ~Creek_System, opacity=1, title = HTML("Release Sites")) %>%
       addLegend(pal = rel_pal, data = rels_yr, values = ~Num_Released, opacity=1, title = HTML("Number of Fish<br>Released"))
   })
