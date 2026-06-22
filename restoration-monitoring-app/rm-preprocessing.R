@@ -565,12 +565,18 @@ composition_plot <- plot_ly(
 ) %>%
   layout(
     barmode = "stack",
-    xaxis = list(title = "", gridcolor = "#cccccc"),
-    yaxis = list(title = "Frequency", gridcolor = "#cccccc"),
+    xaxis = list(title = "", gridcolor = "#cccccc", fixedrange = TRUE),
+    yaxis = list(title = "Frequency", gridcolor = "#cccccc", fixedrange = TRUE),
     legend = list(title = list(text = "Common Name")),
+    font = list(color="white"),
     hovermode = "closest",
     paper_bgcolor = "rgba(0,0,0,0)",
     plot_bgcolor = "rgba(0,0,0,0)"
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    displayModeBar = FALSE,
+    modeBarButtonsToRemove = c('toImage', 'lasso2d', 'hoverClosestCartesian', 'hoverCompareCartesian')
   )
 
 
@@ -579,3 +585,10 @@ composition_plot <- plot_ly(
 save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, 
      rich_time_plot, composition_data, composition_plot, 
      file = "data/rm-preprocessed.RData")
+
+# load("restoration-monitoring-app/rm-preprocessed.RData")
+# 
+# fish_tagged <- seine_tags_clean %>%
+#   group_by(Common_Name) %>%
+#   summarise(Count = n_distinct(Tag_ID)) %>% arrange(desc(Count))
+# fish_tagged[1:20,] %>% arrange(Common_Name)

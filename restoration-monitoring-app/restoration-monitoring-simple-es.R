@@ -28,7 +28,7 @@
 
 
 # ------------------------- PREPROCESSING --------------------------------------
-load("data/rm-preprocessed.RData")
+load("data/rm-preprocessed-es.RData")
 
 ##############################  UI  ############################################
 
@@ -38,14 +38,14 @@ load("data/rm-preprocessed.RData")
 card2 <- card(
   full_screen = TRUE,
   height = "600px",
-  card_header("Tagged Fish Composition"),
+  card_header("Composición de los peces etiquetados"),
   card_body(plotlyOutput("fish_comp"))
 )
 
 # map
 card4 <- card(
   full_screen = TRUE,
-  card_header("Species Richness by Location"),
+  card_header("Riqueza de especies por ubicación"),
   card_body(leafletOutput("map", height = "100%"),
             style = "padding: 0; height: 100%;")
 )
@@ -53,14 +53,14 @@ card4 <- card(
 # --------------------------- SIDEBAR ------------------------------------------
 sidebar <- sidebar(
   width=350,
-  helpText("Use the following selections to update the data displayed."),
-  sliderInput("years", label = "Time Range", min(seine_data$YEAR), max(seine_data$YEAR),
+  helpText("Utilice las siguientes opciones para actualizar los datos mostrados."),
+  sliderInput("years", label = "Rango de tiempo", min(seine_data$YEAR), max(seine_data$YEAR),
               value = c(min(seine_data$YEAR), max(seine_data$YEAR)), sep = "", round = TRUE, step = 1),
-  checkboxGroupInput("seasons", "Season", 
-                     choiceNames = list(HTML("<b>Winter</b> (Jan, Feb, Mar)"),
-                                        HTML("<b>Spring</b> (Apr, May, Jun)"), 
-                                        HTML("<b>Summer</b> (Jul, Aug, Sep)"), 
-                                        HTML("<b>Fall</b> (Oct, Nov, Dec)")), 
+  checkboxGroupInput("seasons", "Estación", 
+                     choiceNames = list(HTML("<b>Invierno</b> (enero, febrero, marzo)"),
+                                        HTML("<b>Primavera</b> (abril, mayo, junio)"), 
+                                        HTML("<b>Verano</b> (julio, agosto, septiembre)"), 
+                                        HTML("<b>Otoño</b> (octubre, noviembre, diciembre)")), 
                      selected = list("Winter","Spring", "Summer", "Fall"),
                      choiceValues = list("Winter","Spring", "Summer", "Fall"))
 ) # end sidebar
@@ -88,13 +88,13 @@ ui <- tagList(
     tags$div(
       style = "display: flex; align-items: center;",
       img(src = "MoteMarineLaboratory_StackedLogo_White.png", style = "height: 30px; margin-right: 15px;"),
-      tags$h4("Restoration Monitoring at Robinson Preserve", style = "margin: 0;")
+      tags$h4("Monitoreo de la restauración en la Reserva Robinson", style = "margin: 0;")
     ),
     
     # Right side: actionLink and GitHub link
     tags$div(
       style = "display: flex; align-items: center; gap: 15px;",
-      actionLink("open_about", label = HTML('<i class="fas fa-info-circle"></i> About the Data'), style = "color: white; text-decoration: none;")
+      actionLink("open_about", label = HTML('<i class="fas fa-info-circle"></i> Acerca de los datos'), style = "color: white; text-decoration: none;")
     )
   ),
   
@@ -108,9 +108,9 @@ ui <- tagList(
         layout_column_wrap(
           width=1, heights_equal = "row",
           card2, 
-          value_box(title = "Tagged Fish", value = textOutput("tagged_fish"), 
+          value_box(title = "Peces marcados", value = textOutput("tagged_fish"), 
                     showcase = icon("fish"), showcase_layout = "left center", theme = "text-primary"),
-          value_box(title = "Seines", value = textOutput("seine_nums"),
+          value_box(title = "Jábegas", value = textOutput("seine_nums"),
                     showcase = bsicons::bs_icon("bucket"), showcase_layout = "left center", theme = "text-primary")
         )
      )
@@ -126,16 +126,16 @@ server <- function(input, output, session) {
   # Open modal for about the data info 
   observeEvent(input$open_about, {
     showModal(modalDialog(
-      title = "About the Data",
+      title = "Acerca de los datos",
       HTML("
       <div style='line-height: 1.6; font-size: 16px;'>
-      <p>The data displayed in this app was collected through seining at Robinson Preserve
-      (2022–2025). This effort is part of the Fisheries Ecology and Enhancement
-      Research Program at Mote Marine Laboratory.</p>
+      <p>Los datos que se muestran en esta aplicación se recopilaron mediante redes de arrastre en 
+      la Reserva Robinson (2022-2025). Este proyecto forma parte del Programa de Investigación 
+      para la Ecología y la Mejora Pesquera del Laboratorio Marino Mote.</p>
     </div>
       "),
       easyClose = TRUE,
-      footer = modalButton("Close")
+      footer = modalButton("Cerca")
     ))
   })
   
@@ -205,14 +205,14 @@ server <- function(input, output, session) {
       addProviderTiles("Esri.WorldImagery") %>%
       setView(lng = -82.66670, lat = 27.50925, zoom = 17) %>%
       addAwesomeMarkers(data = antenna_loc, lng = ~Ant_Longitude, lat = ~Ant_Latitude, icon = icon) %>%
-      leaflet::addLegend(pal = wbpal, data = seine_data, values = ~Water_Name, opacity = 1, title = HTML("Location")) %>%
-      leaflet::addLegend(pal = rpal, data = rich_data_all, values = ~Species_Richness, opacity = 1, title = HTML("Species<br>Richness"))
+      leaflet::addLegend(pal = wbpal, data = seine_data, values = ~Water_Name, opacity = 1, title = HTML("Ubicación")) %>%
+      leaflet::addLegend(pal = rpal, data = rich_data_all, values = ~Species_Richness, opacity = 1, title = HTML("Riqueza de<br>especies"))
   })
   
   observe({
     rpal <- colorNumeric(palette = "RdYlBu", domain = rich_data_all$Species_Richness, reverse = TRUE)
-    popper <- paste0("<strong>Species Richness: </strong>", rich_data()$Species_Richness,
-                     "<br><strong>Seine ID: </strong>", rich_data()$Seine_ID)
+    popper <- paste0("<strong>Riqueza de especies: </strong>", rich_data()$Species_Richness,
+                     "<br><strong>Jábega ID: </strong>", rich_data()$Seine_ID)
     if (nrow(rich_data()) > 0 ) {
       leafletProxy("map") %>%
         clearMarkers() %>%
