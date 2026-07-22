@@ -551,44 +551,71 @@ composition_data <- seine_tags %>%
       Month %in% c(10:12) ~ "Fall"
     )
   )
+
+fish_tagged <- seine_data %>%
+  group_by(Common_Name) %>%
+  summarise(Count = n_distinct(Tag_ID)) %>% arrange(desc(Count))
+fish_tagged <- fish_tagged[1:3,] %>%
+  mutate(Common_Name = factor(Common_Name, levels = c("Common snook", "Striped mullet", "Ladyfish")))
+
+fish_pal <- c("Common snook" = "#862180", "Striped mullet" = "#DD0B12", "Ladyfish" = "#F69C24")
+
+
 # interactive plot
-composition_plot <- plot_ly(
-  data = composition_data, x = ~Month_Year, y = ~Frequency, color = ~Common_Name,
-  type = "bar", # colors=~color_map
-  text = ~ paste(
-    "<b>Species:</b>", Common_Name,
-    "<br><b>Seine Month:</b>", paste0(format(Month_Year, format = "%b %Y")),
-    "<br><b>Frequency:</b>", Frequency
-  ),
-  hoverinfo = "text",
-  textposition = "none"
-) %>%
-  layout(
-    barmode = "stack",
-    xaxis = list(title = "", gridcolor = "#cccccc", fixedrange = TRUE),
-    yaxis = list(title = "Frequency", gridcolor = "#cccccc", fixedrange = TRUE),
-    legend = list(title = list(text = "Common Name")),
-    font = list(color="white"),
-    hovermode = "closest",
-    paper_bgcolor = "rgba(0,0,0,0)",
-    plot_bgcolor = "rgba(0,0,0,0)"
-  ) %>%
-  config(
-    displaylogo = FALSE,
-    displayModeBar = FALSE,
-    modeBarButtonsToRemove = c('toImage', 'lasso2d', 'hoverClosestCartesian', 'hoverCompareCartesian')
-  )
+# composition_plot <- plot_ly(
+#   data = composition_data, x = ~Month_Year, y = ~Frequency, color = ~Common_Name,
+#   type = "bar", # colors=~color_map
+#   text = ~ paste(
+#     "<b>Species:</b>", Common_Name,
+#     "<br><b>Seine Month:</b>", paste0(format(Month_Year, format = "%b %Y")),
+#     "<br><b>Frequency:</b>", Frequency
+#   ),
+#   hoverinfo = "text",
+#   textposition = "none"
+# ) %>%
+#   layout(
+#     barmode = "stack",
+#     xaxis = list(title = "", gridcolor = "#cccccc", fixedrange = TRUE),
+#     yaxis = list(title = "Frequency", gridcolor = "#cccccc", fixedrange = TRUE),
+#     legend = list(title = list(text = "Common Name")),
+#     font = list(color="white"),
+#     hovermode = "closest",
+#     paper_bgcolor = "rgba(0,0,0,0)",
+#     plot_bgcolor = "rgba(0,0,0,0)"
+#   ) %>%
+#   config(
+#     displaylogo = FALSE,
+#     displayModeBar = FALSE,
+#     modeBarButtonsToRemove = c('toImage', 'lasso2d', 'hoverClosestCartesian', 'hoverCompareCartesian')
+#   )
 
 
 # --------------------------- SAVE DATA ----------------------------------------
 
 save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, 
-     rich_time_plot, composition_data, composition_plot, 
-     file = "data/rm-preprocessed.RData")
+     rich_time_plot, composition_data, fish_tagged, fish_pal, #composition_plot, 
+     file = "restoration-monitoring-app/data/rm-preprocessed.RData")
 
 # load("restoration-monitoring-app/rm-preprocessed.RData")
-# 
-# fish_tagged <- seine_tags_clean %>%
-#   group_by(Common_Name) %>%
-#   summarise(Count = n_distinct(Tag_ID)) %>% arrange(desc(Count))
-# fish_tagged[1:20,] %>% arrange(Common_Name)
+
+
+#   tagged_fish <- reactive({
+#     seine_data %>%
+#       filter(YEAR >= input$years[1],
+#              YEAR <= input$years[2],
+#              Season %in% input$seasons,
+#              !is.na(Tag_ID)) %>%
+#       group_by(Common_Name) %>%
+#       summarise(Count = n_distinct(Tag_ID)) %>% arrange(desc(Count))
+#   })
+#   
+# output$fish_tag_table <- renderReactable({ 
+#   reactable(
+#     tagged_fish()[1:5,],
+#     columns = list(
+#       Common_Name = colDef(name = "Species"),
+#       Count = colDef(name = "Number of Fish Tagged", align = "center")
+#     ),
+#     compact=TRUE, pagination=FALSE, #defaultPageSize = 5, minRows=5, 
+#   )
+# })
