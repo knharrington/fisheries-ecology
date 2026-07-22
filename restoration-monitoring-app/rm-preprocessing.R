@@ -594,7 +594,7 @@ fish_pal <- c("Common snook" = "#862180", "Striped mullet" = "#DD0B12", "Ladyfis
 
 save(seine_data, rich_data_all, pit_sample_day, wbpal, dark2_pal, antenna_loc, 
      rich_time_plot, composition_data, fish_tagged, fish_pal, #composition_plot, 
-     file = "restoration-monitoring-app/data/rm-preprocessed.RData")
+     file = "restoration-monitoring-app/rm-preprocessed.RData")
 
 # load("restoration-monitoring-app/rm-preprocessed.RData")
 
