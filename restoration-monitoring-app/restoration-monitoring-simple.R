@@ -16,91 +16,66 @@
   library(bslib)
   library(bsicons)
   library(showtext)
-  # library(shinycssloaders)
-  # library(leaflet.extras2)
   library(thematic)
+  library(reactable)
 }
 # ---------------------------- FUNCTIONS ---------------------------------------
 # function to do the opposite of %in%
 `%nin%` = Negate(`%in%`)
 
 # ---------------------------- OPTIONS -----------------------------------------
-
+# options(
+#   reactable.theme = reactableTheme(
+#     color = "hsl(0, 0%, 100%)", # white
+#     backgroundColor = "hsl(195, 45%, 37%)"
+#   )
+# )
 
 # ------------------------- PREPROCESSING --------------------------------------
-load("data/rm-preprocessed.RData")
+load("rm-preprocessed.RData")
 
 ##############################  UI  ############################################
 
 # ---------------------------- CARDS -------------------------------------------
 
 # bar graph
-card2 <- card(
+plot_card <- card(
   #full_screen = TRUE,
   class = "bg-secondary",
   height = "600px",
   #card_header("Tagged Fish Composition"),
-  card_header("Most Commonly Tagged Fish Species"),
+  card_header(h5("MOST COMMONLY TAGGED FISH SPECIES")),
   card_body(
-    #plotlyOutput("fish_comp")
-    #strong("Most Commonly Tagged Fish Species"),
-    layout_columns(
-      col_widths = c(4,4,4),
-      p("Atlantic Spadefish", br(), "Black Drum", br(), "Blackchin Tilapia", br(), "Common Snook", br(), "Crevalle Jack", br(), "Irish Pompano", br(), "Ladyfish"),
-      p("Mangrove Snapper", br(), "Pinfish", br(), "Red Drum", br(), "Redfin Needlefish", br(), "Sheepshead", br(), "Spot Croaker", br(), "Spotted Seatrout"),
-      p("Striped Mojarra", br(), "Striped Mullet", br(), "Tarpon", br(), "Tidewater Mojarra", br(), "Tilapia spp", br(), "White Mullet")
-      # in order of most to least tags 
-      # p("Common Snook", br(), "Striped Mullet", br(), "Ladyfish", br(), "Sheepshead", br(), "Tarpon", br(), "White Mullet", br(), "Striped Mojarra"),
-      # p("Irish Pompano", br(), "Black Drum", br(), "Red Drum", br(), "Pinfish", br(), "Spot Croaker", br(), "Atlantic Spadefish", br(), "Blackchin Tilapia"),
-      # p("Spotted Seatrout", br(), "Tilapia spp", br(), "Crevalle Jack", br(), "Tidewater Mojarra", br(), "Redfin Needlefish", br(), "Mangrove Snapper")
-    ),
-    div(style = "text-align: center", img(src="SnookAcousticTagging_20190227_029.jpg", width="400px")),
-    div(style = "text-align: center", em("Mote scientists tag a Common Snook before releasing it."))
+    plotlyOutput("fish_comp")
   )
 )
 
 # map
-card4 <- card(
+map_card <- card(
   #full_screen = TRUE,
   class = "bg-secondary",
-  card_header("Number of Species Caught per Area"),
+  card_header(h5("NUMBER OF SPECIES CAUGHT PER AREA AT ROBINSON PRESERVE")),
   card_body(leafletOutput("map", height = "100%"),
-            style = "padding: 0; height: 100%;")
-)
-
-card5 <- card(
-  class = "bg-secondary",
-  card_body(
-    helpText("See the fish we found at different years and seasons"),
-    layout_columns(
-      col_widths = c(3,9),
-      sliderInput("years", label = "Time Range", min(seine_data$YEAR), max(seine_data$YEAR),
-                value = c(min(seine_data$YEAR), max(seine_data$YEAR)), sep = "", round = TRUE, step = 1),
-    checkboxGroupInput("seasons", "Season", 
-                       choiceNames = list(HTML("<b>Winter</b> (Jan, Feb, Mar)"),
-                                          HTML("<b>Spring</b> (Apr, May, Jun)"), 
-                                          HTML("<b>Summer</b> (Jul, Aug, Sep)"), 
-                                          HTML("<b>Fall</b> (Oct, Nov, Dec)")), 
-                       selected = list("Winter","Spring", "Summer", "Fall"),
-                       choiceValues = list("Winter","Spring", "Summer", "Fall"))
-    )
-  )
+            div(id = "translucent_panel",
+                p("See the species we found at different years and seasons", style = "font-size: 18px;"),
+                layout_columns(
+                  col_widths = c(7,5),
+                  sliderInput("years", label = span("Time Range", style="font-size: 20px;"), min(seine_data$YEAR), max(seine_data$YEAR),
+                            value = c(min(seine_data$YEAR), max(seine_data$YEAR)), sep = "", round = TRUE, step = 1),
+                checkboxGroupInput("seasons", label = span("Season", style="font-size: 20px;"),
+                                   choiceNames = list(HTML("<b>Winter</b> (Jan, Feb, Mar)"),
+                                                      HTML("<b>Spring</b> (Apr, May, Jun)"),
+                                                      HTML("<b>Summer</b> (Jul, Aug, Sep)"),
+                                                      HTML("<b>Fall</b> (Oct, Nov, Dec)")),
+                                   selected = list("Winter","Spring", "Summer", "Fall"),
+                                   choiceValues = list("Winter","Spring", "Summer", "Fall"))
+                )
+                
+            ), style = "padding: 0; height: 100%;")
 )
 
 # --------------------------- SIDEBAR ------------------------------------------
-# sidebar <- sidebar(
-#   width=350,
-#   helpText("Use the following selections to update the data displayed."),
-#   sliderInput("years", label = "Time Range", min(seine_data$YEAR), max(seine_data$YEAR),
-#               value = c(min(seine_data$YEAR), max(seine_data$YEAR)), sep = "", round = TRUE, step = 1),
-#   checkboxGroupInput("seasons", "Season", 
-#                      choiceNames = list(HTML("<b>Winter</b> (Jan, Feb, Mar)"),
-#                                         HTML("<b>Spring</b> (Apr, May, Jun)"), 
-#                                         HTML("<b>Summer</b> (Jul, Aug, Sep)"), 
-#                                         HTML("<b>Fall</b> (Oct, Nov, Dec)")), 
-#                      selected = list("Winter","Spring", "Summer", "Fall"),
-#                      choiceValues = list("Winter","Spring", "Summer", "Fall"))
-# ) # end sidebar
+
 
 # ----------------------------- MAIN -------------------------------------------
 # automatically adjust ggplot themes
@@ -111,67 +86,90 @@ theme <- bs_theme(
   version = 5,
   bg = "#02426A",
   fg = "#ffffff",
-  primary = "#B5D675",
-  secondary = "#34758A"
+  primary = "#8bc7ca",
+  secondary = "#34758A",
+  heading_font = font_face(
+    family = "Futura",
+    src = "url('/fonts/FuturaExtraBold.ttf') format('truetype')",
+    style="normal"
+  ),
+  base_font = font_face(
+    family = "Tablet Gothic",
+    src = "url('/fonts/TabletGothic.ttf') format('truetype')",
+    style="normal"
+  )
 )
 
-# ui <- tagList(
-#   # Custom full-width header bar
-#   tags$div(
-#     style = "background-color: #0054a6;color: white; padding: 10px 20px;
-#       display: flex; align-items: center; justify-content: space-between;",
-#     
-#     # Left side: logo and title
-#     tags$div(
-#       style = "display: flex; align-items: center;",
-#       img(src = "MoteMarineLaboratory_StackedLogo_White.png", style = "height: 30px; margin-right: 15px;"),
-#       tags$h4("Restoration Monitoring at Robinson Preserve", style = "margin: 0;")
-#     ),
-#     
-#     # Right side: actionLink and GitHub link
-#     tags$div(
-#       style = "display: flex; align-items: center; gap: 15px;",
-#       actionLink("open_about", label = HTML('<i class="fas fa-info-circle"></i> About the Data'), style = "color: white; text-decoration: none;")
-#     )
-#   ),
-#   
-#   # Main page structure
-#   page_sidebar(
-#     theme = theme,
-#     sidebar = sidebar,
-#       layout_columns(
-#         col_widths = c(8, 4), 
-#         card4,  
-#         layout_column_wrap(
-#           width=1, heights_equal = "row",
-#           card2, 
-#           value_box(title = "Tagged Fish", value = textOutput("tagged_fish"), 
-#                     showcase = icon("fish"), showcase_layout = "left center", theme = "text-primary"),
-#           value_box(title = "Seines", value = textOutput("seine_nums"),
-#                     showcase = bsicons::bs_icon("bucket"), showcase_layout = "left center", theme = "text-primary")
-#         )
-#      )
-#   )
-# )
-
 ui <- page_fillable(
+  tags$style(HTML("
+    #time_slider {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      z-index: 1000; /* Ensure input is above map */
+    }
+    
+    #translucent_panel {
+      position: absolute;
+      bottom: 20px;
+      left: 30px;
+      background-color: rgba(2, 66, 106, 1.0); /* Opaque blue */
+      padding: 20px;
+      border-radius: 5px;
+      z-index: 999; /* Ensure panel is below slider */
+    }
+    
+    #snook_photo {
+    position: absolute;
+    bottom: 210px;
+    left: 30px;
+    z-index: 1001;
+    }
+    
+    @font-face {
+    font-family: 'Tablet Gothic';
+    src: url('fonts/TabletGothic.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    }
+    
+    @font-face {
+    font-family: 'Futura';
+    src: url('fonts/FuturaExtraBold.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    }
+    
+    .info.legend.leaflet-control {
+    font-family: 'Tablet Gothic', sans-serif !important;
+    }
+    
+    /* font size for time slider */
+    .irs-grid-text { font-size: 13px !important; }
+    .irs-min, .irs-max { font-size: 13px !important; }
+    .irs-single, .irs-from, .irs-to { font-size: 15px !important; }
+    
+  ")),
     theme = theme,
     #sidebar = sidebar,
     layout_columns(
       col_widths = c(8, 4), 
       layout_columns(
         col_widths = c(12),
-        row_heights = c(3,1),
-        card4, card5
+        #row_heights = c(3,1),
+        map_card#, input_card
       ),
   
       layout_column_wrap(
         width=1, heights_equal = "row",
-        card2, 
-        value_box(title = "Number of Fish Tagged", value = textOutput("tagged_fish"), 
+        plot_card, 
+        value_box(title = span("Total Number of Fish Tagged", style="font-family: 'Tablet Gothic'; font-size: 20px;"), 
+                  value = span(textOutput("tagged_fish"), style="font-family: 'Tablet Gothic';"), 
                   showcase = icon("fish"), showcase_layout = "left center", theme = "secondary"),
-        value_box(title = "Nets for Catching and Releasing Fish", value = textOutput("seine_nums"),
-                  showcase = bsicons::bs_icon("bucket"), showcase_layout = "left center", theme = "secondary")
+        value_box(title = span("Nets for Catching and Releasing Fish", style="font-family: 'Tablet Gothic'; font-size: 20px;"), 
+                  value = span(textOutput("seine_nums"), style="font-family: 'Tablet Gothic';"),
+                  showcase = tags$img(src = "seine net.png", style = "max-height: 75px; width: auto;"), 
+                  showcase_layout = "left center", theme = "secondary")
       )
     )
   )
@@ -182,21 +180,7 @@ ui <- page_fillable(
 server <- function(input, output, session) {
   
   # ---------------------------- LINKS -----------------------------------------
-  # # Open modal for about the data info 
-  # observeEvent(input$open_about, {
-  #   showModal(modalDialog(
-  #     title = "About the Data",
-  #     HTML("
-  #     <div style='line-height: 1.6; font-size: 16px;'>
-  #     <p>The data displayed in this app was collected through seining at Robinson Preserve
-  #     (2022–2025). This effort is part of the Fisheries Ecology and Enhancement
-  #     Research Program at Mote Marine Laboratory.</p>
-  #   </div>
-  #     "),
-  #     easyClose = TRUE,
-  #     footer = modalButton("Close")
-  #   ))
-  # })
+
   
   # ---------------------------- DATA ------------------------------------------
   
@@ -226,6 +210,8 @@ server <- function(input, output, session) {
       )
   })
   
+  # ---------------------------- TABLE -----------------------------------------  
+  
   # ---------------------------- TEXT ------------------------------------------
   # print total observations for filtered data in ui
   comp_data <- reactive({
@@ -252,7 +238,58 @@ server <- function(input, output, session) {
 
   # tagged fish by species for each sampling event
   output$fish_comp <- renderPlotly({
-    composition_plot
+    plot_ly(
+      data = fish_tagged, x = ~Count, y = ~Common_Name, color = ~Common_Name, 
+      type = "bar", colors=fish_pal,
+      text = ~ paste(
+        "<b>Species:</b>", Common_Name,
+        "<br><b>Number of Unique Tags:</b>", Count
+      ),
+      hoverinfo = "text",
+      textposition = "none"
+    ) %>%
+      layout(
+        images = list(
+          list(
+            source = "common_snook.png",
+            row=1, col=1, x=0, y=0.15,
+            xanchor="right", 
+            yanchor="top", 
+            sizex=0.2, 
+            sizey=0.2
+          ),
+          list(
+            source = "striped_mullet.png",
+            row=1, col=1, x=0, y=0.49,
+            xanchor="right", 
+            yanchor="top", 
+            sizex=0.2, 
+            sizey=0.2
+          ),
+          list(
+            source = "ladyfish.png",
+            row=1, col=1, x=0, y=0.82,
+            xanchor="right", 
+            yanchor="top", 
+            sizex=0.2, 
+            sizey=0.2
+          )
+        ),
+        barmode = "stack",
+        xaxis = list(title = "Number of Unique Tags", gridcolor = "#cccccc", fixedrange = TRUE, linecolor = "#cccccc"),
+        yaxis = list(title = "", gridcolor = "#cccccc", fixedrange = TRUE, linecolor = "#cccccc"),
+        showlegend = FALSE,
+        #legend = list(title = list(text = "Common Name")),
+        font = list(color="white", family="Tablet Gothic", size=14),
+        hovermode = "closest",
+        paper_bgcolor = "rgba(0,0,0,0)",
+        plot_bgcolor = "rgba(0,0,0,0)"
+      ) %>%
+      config(
+        displaylogo = FALSE,
+        displayModeBar = FALSE,
+        modeBarButtonsToRemove = c('toImage', 'lasso2d', 'hoverClosestCartesian', 'hoverCompareCartesian')
+      )
   })
   
   # ---------------------------- MAPS ------------------------------------------
@@ -262,8 +299,9 @@ server <- function(input, output, session) {
     icon <- makeAwesomeIcon(icon = "tower-broadcast", library = "fa", markerColor = "darkblue", iconColor = "#FFFFFF")
     leaflet(options = leafletOptions(attributionControl = FALSE, minZoom = 16, maxZoom=18)) %>%
       addProviderTiles("Esri.WorldImagery") %>%
-      setView(lng = -82.66670, lat = 27.50925, zoom = 17) %>%
-      addAwesomeMarkers(data = antenna_loc, lng = ~Ant_Longitude, lat = ~Ant_Latitude, icon = icon) %>%
+      setView(lng = -82.66765, lat = 27.50865, zoom = 17) %>%
+      setMaxBounds(lng1 = -82.655, lat1 = 27.495, lng2 = -82.68, lat2 = 27.52) %>%
+      #addAwesomeMarkers(data = antenna_loc, lng = ~Ant_Longitude, lat = ~Ant_Latitude, icon = icon) %>%
       leaflet::addLegend(pal = wbpal, data = seine_data, values = ~Water_Name, opacity = 1, title = HTML("Location")) %>%
       leaflet::addLegend(pal = rpal, data = rich_data_all, values = ~Species_Richness, opacity = 1, title = HTML("Number of<br>Species Caught"))
   })
