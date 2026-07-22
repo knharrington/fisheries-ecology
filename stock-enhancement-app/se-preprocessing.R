@@ -517,38 +517,38 @@ rels_yr <- rels_yr_raw %>%
   filter(!is.na(Num_Released)) %>%
   left_join(creek_loc, by = join_by(Creek_System))
 
-release_plot <- plot_ly(
-  data = rels_yr, x = ~Year, y = ~Num_Released, color = ~Creek_System,
-  type = "bar", colors="Paired",
-  text = ~ paste(
-    "<b>Year:</b>", Year,
-    "<br><b>Release Site:</b>", Creek_System,
-    "<br><b>Number of Fish Released:</b>", format(Num_Released, big.mark=",")
-  ),
-  marker = list(line = list(color = "grey30", width=0.5)),
-  hoverinfo = "text",
-  textposition = "none"
-) %>%
-  layout(
-    barmode = "stack",
-    xaxis = list(title = "", gridcolor = "#cccccc", fixedrange = TRUE),
-    yaxis = list(title = "Number of Fish Released", gridcolor = "#cccccc", fixedrange = TRUE),
-    legend = list(title = list(text = "Release Site")),
-    font = list(color="white"),
-    hovermode = "closest",
-    paper_bgcolor = "rgba(0,0,0,0)",
-    plot_bgcolor = "rgba(0,0,0,0)"
-  ) %>%
-  config(
-    displaylogo = FALSE,
-    displayModeBar = FALSE,
-    modeBarButtonsToRemove = c('toImage', 'lasso2d', 'hoverClosestCartesian', 'hoverCompareCartesian')
-  )
+# release_plot <- plot_ly(
+#   data = rels_yr, x = ~Year, y = ~Num_Released, color = ~Creek_System,
+#   type = "bar", colors="Paired",
+#   text = ~ paste(
+#     "<b>Year:</b>", Year,
+#     "<br><b>Release Site:</b>", Creek_System,
+#     "<br><b>Number of Fish Released:</b>", format(Num_Released, big.mark=",")
+#   ),
+#   marker = list(line = list(color = "grey30", width=0.5)),
+#   hoverinfo = "text",
+#   textposition = "none"
+# ) %>%
+#   layout(
+#     barmode = "stack",
+#     xaxis = list(title = "", gridcolor = "#cccccc", fixedrange = TRUE),
+#     yaxis = list(title = "Number of Fish Released", gridcolor = "#cccccc", fixedrange = TRUE),
+#     legend = list(title = list(text = "Release Site")),
+#     font = list(color="white", family="TabletGothic"),
+#     hovermode = "closest",
+#     paper_bgcolor = "rgba(0,0,0,0)",
+#     plot_bgcolor = "rgba(0,0,0,0)"
+#   ) %>%
+#   config(
+#     displaylogo = FALSE,
+#     displayModeBar = FALSE,
+#     modeBarButtonsToRemove = c('toImage', 'lasso2d', 'hoverClosestCartesian', 'hoverCompareCartesian')
+#   )
 
 blue_palette <- colorRampPalette(c("#F6FAFC", "#02426A"))
 
 # --------------------------- SAVE DATA ----------------------------------------
 
-save(release_survival, rel_points, antenna_loc, icons, set3_pal, release_plot, rels_yr, blue_palette, file = "data/se-preprocessed.RData")
+save(release_survival, rel_points, antenna_loc, icons, set3_pal, rels_yr, blue_palette, file = "data/se-preprocessed.RData")
 
 #load("stock-enhancement-app/se-preprocessed.RData")
